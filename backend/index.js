@@ -51,3 +51,11 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL,
+    'https://legendary-boba-ce1658.netlify.app/',  // add this
+  ],
+  credentials: true
+}));
