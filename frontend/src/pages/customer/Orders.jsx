@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getAccountHistory } from '../../api/customer.js';
+import BottomNav from '../../components/BottomNav.jsx';
+import OrderCard from '../../components/OrderCard.jsx';
+import Spinner from '../../components/Spinner.jsx';
+import telegram from '../../telegram.js';
+
+const TABS = [
+  { key: 'active',    label: 'Active',    icon: '🕐', status: 'pending'   },
+  { key: 'completed', label: 'Completed', icon: '✅', status: 'approved'  },
+  { key: 'cancelled', label: 'Cancelled', icon: '✕',  status: 'cancelled' },
+];
+
+export default function Orders() {
+  const { cafeId } = useParams();
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('active');
+
+  useEffect(() => {
+    telegram.showBackButton(() => navigate(`/cafe/${cafeId}/menu`));
+    return () => telegram.hideBackButton();
+  }, []);
+
+  useEffect(() => {
+    getAccountHistory(cafeId)
+      .then(data => setOrders(data.orders))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [cafeId]);
+
+  const activeTab = TABS.find(t => t.key === tab);
+  const filtered = orders.filter(o => o.status === activeTab.status);
+  const activeCount = orders.filter(o => o.status === 'pending').length;
+
+  if (loading) return <Spinner fullPage label="Loading orders..." />;
+
+  return (
+    <div className="page">
+      <div className="header">
+        <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
+        <div className="header-title">Orders</div>
+        <div style={{ width: 36 }} />
+      </div>
+
+      <div className="tabs">
+        {TABS.map(t => (
+          <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-icon">🛍️</div>
+          <div>
+            <div className="stat-value">{activeCount}</div>
+            <div className="stat-label">Active Orders</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">📋</div>
+          <div>
+            <div className="stat-value">{orders.length}</div>
+            <div className="stat-label">Total Orders</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '0 16px' }}>
+        {filtered.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">📦</div>
+            <div className="empty-title">No {activeTab.label.toLowerCase()} orders</div>
+          </div>
+        ) : (
+          filtered.map(order => <OrderCard key={order.id} order={order} />)
+        )}
+      </div>
+
+      <div style={{ height: 90 }} />
+      <BottomNav variant="customer-cafe" cafeId={cafeId} active="orders" />
+    </div>
+  );
+}
