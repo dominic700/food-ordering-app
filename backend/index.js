@@ -47,6 +47,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+app.get("/", (req, res) => {
+  res.json({
+    status: "success",
+    message: "Food Ordering Backend is running"
+  });
+});
+
 // ── Start server ──────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
