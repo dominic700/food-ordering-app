@@ -22,6 +22,16 @@ app.use(cors({
   credentials: true
 }));
 
+
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL,
+    'https://legendary-boba-ce1658.netlify.app/',  // add this
+  ],
+  credentials: true
+}));
+
+
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
 app.use('/api/admin',    adminRoutes);
@@ -30,6 +40,15 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/orders',   orderRoutes);
 app.use('/api/menu',     menuRoutes);
 app.use('/api/deposits', depositRoutes);
+
+
+app.get("/", (req, res) => {
+  res.json({
+    status: "success",
+    message: "Food Ordering Backend is running"
+  });
+});
+
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -47,22 +66,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.get("/", (req, res) => {
-  res.json({
-    status: "success",
-    message: "Food Ordering Backend is running"
-  });
-});
 
 // ── Start server ──────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL,
-    'https://legendary-boba-ce1658.netlify.app/',  // add this
-  ],
-  credentials: true
-}));
