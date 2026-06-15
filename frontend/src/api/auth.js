@@ -1,6 +1,8 @@
 import telegram from '../telegram.js';
 
-const BASE = import.meta.env.VITE_API_URL || '/api';
+const BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
 const ADMIN_TOKEN_KEY = 'admin_token';
 
 // ── Admin JWT token storage ─────────────────────────────────────
