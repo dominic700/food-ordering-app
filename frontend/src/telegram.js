@@ -1,4 +1,5 @@
 const tg = window.Telegram?.WebApp;
+const IS_TELEGRAM = !!tg?.initData;
 
 export const telegram = {
   init() { if (tg) { tg.ready(); tg.expand(); } },
