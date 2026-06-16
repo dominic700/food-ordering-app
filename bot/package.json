@@ -8,6 +8,9 @@
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
     "dotenv": "^16.4.5",
