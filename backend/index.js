@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import authRoutes     from './routes/auth.js';
 import adminRoutes    from './routes/admin.js';
@@ -12,6 +14,7 @@ import depositRoutes  from './routes/deposits.js';
 
 dotenv.config();
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -22,15 +25,10 @@ app.use(cors({
   credentials: true
 }));
 
-
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL,
-    'https://legendary-boba-ce1658.netlify.app/',  // add this
-  ],
-  credentials: true
-}));
-
+// ── Serve uploaded images as static files ─────────────────────
+// Images uploaded to backend/uploads/ are accessible at:
+//   https://your-backend.onrender.com/uploads/promos/filename.jpg
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Routes ────────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
@@ -40,15 +38,6 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/orders',   orderRoutes);
 app.use('/api/menu',     menuRoutes);
 app.use('/api/deposits', depositRoutes);
-
-
-app.get("/", (req, res) => {
-  res.json({
-    status: "success",
-    message: "Food Ordering Backend is running"
-  });
-});
-
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -66,9 +55,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-
-// ── Start server ──────────────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-

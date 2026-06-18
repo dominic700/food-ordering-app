@@ -1,8 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import telegram from '../telegram.js';
 
-// Admin bottom nav — 3 tabs matching the design:
-// Cafes | New Cafe (big red circle center) | Orders Today
 export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
   const navigate = useNavigate();
 
@@ -11,59 +9,86 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
     navigate(path);
   }
 
+  const btnStyle = (key) => ({
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 3,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontFamily: 'var(--font)',
+    padding: '4px 8px',
+  });
+
+  const iconStyle = (key) => ({
+    fontSize: 22,
+    color: active === key ? 'var(--red)' : 'var(--text2)',
+  });
+
+  const labelStyle = (key) => ({
+    fontSize: 11,
+    fontWeight: 600,
+    color: active === key ? 'var(--red)' : 'var(--text2)',
+  });
+
   return (
-    <div className="bottom-nav">
+    <div className="bottom-nav" style={{ justifyContent: 'space-around' }}>
+
       {/* Cafes */}
-      <button
-        className={`nav-item ${active === 'cafes' ? 'active' : ''}`}
-        onClick={() => go('/admin')}
-        style={{ flex: 1 }}
-      >
-        <span style={{ fontSize: 22, color: active === 'cafes' ? 'var(--red)' : 'var(--text2)' }}>🏪</span>
-        <span className="nav-label" style={{ color: active === 'cafes' ? 'var(--red)' : 'var(--text2)' }}>Cafes</span>
+      <button style={btnStyle('cafes')} onClick={() => go('/admin')}>
+        <span style={iconStyle('cafes')}>🏪</span>
+        <span style={labelStyle('cafes')}>Cafes</span>
       </button>
 
-      {/* New Cafe — big red circle (center, elevated) */}
-      <button
-        onClick={() => go('/admin/create')}
-        style={{
-          width: 56, height: 56,
-          background: active === 'create' ? '#c0000a' : 'var(--red)',
-          borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 26, color: '#fff',
-          border: 'none', cursor: 'pointer',
-          marginTop: -16,
-          boxShadow: '0 4px 14px rgba(230,57,70,0.4)',
-          flexShrink: 0,
-        }}
-      >
-        +
+      {/* New Cafe — big red circle center */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        <button
+          onClick={() => go('/admin/create')}
+          style={{
+            width: 52, height: 52,
+            background: active === 'create' ? '#c0000a' : 'var(--red)',
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 26, color: '#fff',
+            border: 'none', cursor: 'pointer',
+            marginTop: -16,
+            boxShadow: '0 4px 14px rgba(230,57,70,0.4)',
+          }}
+        >
+          +
+        </button>
+        <span style={{ fontSize: 11, fontWeight: 600, color: active === 'create' ? 'var(--red)' : 'var(--text2)' }}>
+          New Cafe
+        </span>
+      </div>
+
+      {/* Promotions */}
+      <button style={btnStyle('promotions')} onClick={() => go('/admin/promotions')}>
+        <span style={iconStyle('promotions')}>🖼️</span>
+        <span style={labelStyle('promotions')}>Promos</span>
       </button>
-      <span style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', fontSize: 11, fontWeight: 600, color: active === 'create' ? 'var(--red)' : 'var(--text2)', pointerEvents: 'none' }}>
-        New Cafe
-      </span>
 
       {/* Orders Today */}
-      <button
-        className={`nav-item ${active === 'orders' ? 'active' : ''}`}
-        onClick={() => go('/admin/orders')}
-        style={{ flex: 1, position: 'relative' }}
-      >
-        <span style={{ fontSize: 22, color: active === 'orders' ? 'var(--red)' : 'var(--text2)', position: 'relative' }}>
-          📊
+      <button style={btnStyle('orders')} onClick={() => go('/admin/orders')} >
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <span style={iconStyle('orders')}>📊</span>
           {totalOrdersToday > 0 && (
             <span style={{
-              position: 'absolute', top: -6, right: -8,
+              position: 'absolute', top: -4, right: -8,
               background: 'var(--red)', color: '#fff',
               fontSize: 9, fontWeight: 800,
               borderRadius: 10, padding: '1px 4px',
               lineHeight: 1.4,
-            }}>{totalOrdersToday}</span>
+            }}>
+              {totalOrdersToday}
+            </span>
           )}
-        </span>
-        <span className="nav-label" style={{ color: active === 'orders' ? 'var(--red)' : 'var(--text2)' }}>Orders Today</span>
+        </div>
+        <span style={labelStyle('orders')}>Orders</span>
       </button>
+
     </div>
   );
 }

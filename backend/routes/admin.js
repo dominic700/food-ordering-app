@@ -1,29 +1,49 @@
 import express from 'express';
 import pool from '../db/connection.js';
-import { jwtAuth, telegramAuth } from '../middleware/auth.js';
+import { telegramAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// All admin routes protected by JWT
-router.use(jwtAuth);
+// ── Admin role check middleware ────────────────────────────────
+// Checks that the Telegram user is in the admins table
+async function adminAuth(req, res, next) {
+  try {
+    const { telegram_id } = req.telegramUser;
+    const result = await pool.query(
+      'SELECT id, name, email FROM admins WHERE telegram_id = $1',
+      [telegram_id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied. Not an admin.' });
+    }
+    req.admin = result.rows[0];
+    next();
+  } catch (err) {
+    console.error('Admin auth error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+// All admin routes require Telegram auth + admin role
+router.use(telegramAuth, adminAuth);
+
 
 // ── GET /api/admin/cafes ──────────────────────────────────────
-// List all cafes with owner + stats
 router.get('/cafes', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
         c.*,
-        co.name       AS owner_name,
-        co.phone      AS owner_phone,
+        co.name        AS owner_name,
+        co.phone       AS owner_phone,
         co.telegram_id AS owner_telegram_id,
         COUNT(DISTINCT pca.id) FILTER (WHERE pca.status = 'approved') AS customer_count,
         COUNT(DISTINCT o.id)                                           AS total_orders,
         COALESCE(SUM(o.service_fee) FILTER (WHERE o.status = 'approved'), 0) AS total_fees
       FROM cafes c
-      LEFT JOIN cafe_owners co    ON co.cafe_id = c.id
+      LEFT JOIN cafe_owners co       ON co.cafe_id = c.id
       LEFT JOIN per_cafe_accounts pca ON pca.cafe_id = c.id
-      LEFT JOIN orders o          ON o.cafe_id = c.id
+      LEFT JOIN orders o             ON o.cafe_id = c.id
       GROUP BY c.id, co.name, co.phone, co.telegram_id
       ORDER BY c.created_at DESC
     `);
@@ -36,24 +56,30 @@ router.get('/cafes', async (req, res) => {
 
 
 // ── GET /api/admin/cafes/:cafeId ─────────────────────────────
-// Single cafe detail — last 30 days orders + customer count
 router.get('/cafes/:cafeId', async (req, res) => {
   try {
     const { cafeId } = req.params;
 
-    const cafe = await pool.query(
-      `SELECT c.*, co.name AS owner_name, co.phone AS owner_phone, co.telegram_id AS owner_telegram_id
-       FROM cafes c LEFT JOIN cafe_owners co ON co.cafe_id = c.id
-       WHERE c.id = $1`, [cafeId]
-    );
-    if (cafe.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
+    const cafe = await pool.query(`
+      SELECT c.*,
+        co.name AS owner_name, co.phone AS owner_phone,
+        co.telegram_id AS owner_telegram_id
+      FROM cafes c
+      LEFT JOIN cafe_owners co ON co.cafe_id = c.id
+      WHERE c.id = $1
+    `, [cafeId]);
+
+    if (cafe.rows.length === 0) {
+      return res.status(404).json({ error: 'Cafe not found' });
+    }
 
     const orders = await pool.query(`
       SELECT o.*, ga.name AS customer_name, ga.phone AS customer_phone
       FROM orders o
       JOIN per_cafe_accounts pca ON o.per_cafe_account_id = pca.id
       JOIN global_accounts ga    ON pca.global_account_id = ga.id
-      WHERE o.cafe_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
+      WHERE o.cafe_id = $1
+        AND o.created_at >= NOW() - INTERVAL '30 days'
       ORDER BY o.created_at DESC
     `, [cafeId]);
 
@@ -77,17 +103,19 @@ router.get('/cafes/:cafeId', async (req, res) => {
 
 
 // ── POST /api/admin/cafes ─────────────────────────────────────
-// Create new cafe + assign owner by telegram_id
 router.post('/cafes', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const { name, description, logo_url, address, phone, service_fee,
-            owner_telegram_id, owner_name, owner_phone } = req.body;
+    const {
+      name, description, logo_url, address,
+      phone, service_fee,
+      owner_telegram_id, owner_name, owner_phone
+    } = req.body;
 
     if (!name || !owner_telegram_id) {
-      return res.status(400).json({ error: 'Cafe name and owner telegram ID are required' });
+      return res.status(400).json({ error: 'Cafe name and owner Telegram ID are required' });
     }
 
     const cafe = await client.query(`
@@ -113,7 +141,6 @@ router.post('/cafes', async (req, res) => {
 
 
 // ── PATCH /api/admin/cafes/:cafeId ───────────────────────────
-// Update cafe details or service fee
 router.patch('/cafes/:cafeId', async (req, res) => {
   try {
     const { cafeId } = req.params;
@@ -140,7 +167,6 @@ router.patch('/cafes/:cafeId', async (req, res) => {
 
 
 // ── PATCH /api/admin/cafes/:cafeId/toggle ────────────────────
-// Activate or deactivate a cafe
 router.patch('/cafes/:cafeId/toggle', async (req, res) => {
   try {
     const { cafeId } = req.params;
@@ -159,7 +185,6 @@ router.patch('/cafes/:cafeId/toggle', async (req, res) => {
 
 
 // ── GET /api/admin/promotions ─────────────────────────────────
-// List all promotions
 router.get('/promotions', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -176,7 +201,6 @@ router.get('/promotions', async (req, res) => {
 
 
 // ── POST /api/admin/promotions ────────────────────────────────
-// Add a promotion image
 router.post('/promotions', async (req, res) => {
   try {
     const { cafe_id, image_url, title } = req.body;
@@ -207,3 +231,37 @@ router.delete('/promotions/:id', async (req, res) => {
 });
 
 export default router;
+
+
+// ── POST /api/admin/promotions/upload ─────────────────────────
+// Upload a promo image file → save to uploads/promos/
+// Store the public URL in promotions table
+import { uploadPromo } from '../middleware/upload.js';
+
+router.post('/promotions/upload', (req, res) => {
+  uploadPromo(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+      const { title, cafe_id } = req.body;
+
+      // Build the public URL — served by Express static middleware
+      const imageUrl = `/uploads/promos/${req.file.filename}`;
+
+      const result = await pool.query(`
+        INSERT INTO promotions (cafe_id, image_url, title, is_active)
+        VALUES ($1, $2, $3, true) RETURNING *
+      `, [cafe_id || null, imageUrl, title || null]);
+
+      res.status(201).json(result.rows[0]);
+    } catch (dbErr) {
+      console.error(dbErr.message);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+});

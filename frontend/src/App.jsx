@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import telegram from './telegram.js';
-import { initApp, adminLogin, setAdminToken, getAdminToken } from './api/auth.js';
+import { initApp } from './api/auth.js';
 import useStore from './store/useStore.js';
 import Spinner from './components/Spinner.jsx';
 
@@ -24,39 +24,30 @@ import Registrations from './pages/cafe/Registrations.jsx';
 import CafeProfile   from './pages/cafe/CafeProfile.jsx';
 
 // ── Admin pages ───────────────────────────────────────────────
-import AdminLogin     from './pages/admin/AdminLogin.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import CreateCafe     from './pages/admin/CreateCafe.jsx';
 import CafeDetail     from './pages/admin/CafeDetail.jsx';
+import Promotions     from './pages/admin/Promotions.jsx';
 
 
-// ============================================================
-// CUSTOMER APP
-// Role: customer
-// Entry: / (home page — cafe list)
-// ============================================================
+// ── Customer App ──────────────────────────────────────────────
 function CustomerApp() {
   return (
     <Routes>
-      <Route path="/"                      element={<Home />} />
-      <Route path="/favorites"             element={<Favorites />} />
-      <Route path="/cafe/:cafeId/menu"     element={<CafeMenu />} />
-      <Route path="/cafe/:cafeId/orders"   element={<Orders />} />
-      <Route path="/cafe/:cafeId/cart"     element={<Cart />} />
-      <Route path="/cafe/:cafeId/deposit"  element={<Deposit />} />
-      <Route path="/cafe/:cafeId/profile"  element={<Profile />} />
-      <Route path="/cafe/:cafeId/credit"   element={<CreditApply />} />
-      <Route path="*"                      element={<Navigate to="/" />} />
+      <Route path="/"                     element={<Home />} />
+      <Route path="/favorites"            element={<Favorites />} />
+      <Route path="/cafe/:cafeId/menu"    element={<CafeMenu />} />
+      <Route path="/cafe/:cafeId/orders"  element={<Orders />} />
+      <Route path="/cafe/:cafeId/cart"    element={<Cart />} />
+      <Route path="/cafe/:cafeId/deposit" element={<Deposit />} />
+      <Route path="/cafe/:cafeId/profile" element={<Profile />} />
+      <Route path="/cafe/:cafeId/credit"  element={<CreditApply />} />
+      <Route path="*"                     element={<Navigate to="/" />} />
     </Routes>
   );
 }
 
-
-// ============================================================
-// CAFE OWNER APP
-// Role: cafe_owner
-// Entry: /cafe-home (dashboard)
-// ============================================================
+// ── Cafe Owner App ────────────────────────────────────────────
 function CafeOwnerApp() {
   return (
     <Routes>
@@ -71,36 +62,21 @@ function CafeOwnerApp() {
   );
 }
 
-
-// ============================================================
-// ADMIN APP
-// Role: admin
-// Entry: /admin (dashboard)
-// Protected by JWT — if no token redirect to /admin/login
-// ============================================================
+// ── Admin App ─────────────────────────────────────────────────
 function AdminApp() {
-  // If no JWT token saved → go to login page
-  if (!getAdminToken()) {
-    return <Navigate to="/admin/login" />;
-  }
-
   return (
     <Routes>
-      <Route path="/admin"              element={<AdminDashboard />} />
-      <Route path="/admin/create"       element={<CreateCafe />} />
-      <Route path="/admin/cafe/:cafeId" element={<CafeDetail />} />
-      <Route path="*"                   element={<Navigate to="/admin" />} />
+      <Route path="/admin"               element={<AdminDashboard />} />
+      <Route path="/admin/create"        element={<CreateCafe />} />
+      <Route path="/admin/cafe/:cafeId"  element={<CafeDetail />} />
+      <Route path="/admin/promotions"    element={<Promotions />} />
+      <Route path="*"                    element={<Navigate to="/admin" />} />
     </Routes>
   );
 }
 
-
-// ============================================================
-// TELEGRAM ENTRY POINT
-// Called when the Mini App opens inside Telegram.
-// Detects the user's role and renders the correct portal.
-// ============================================================
-function TelegramEntry() {
+// ── Main Entry ────────────────────────────────────────────────
+function AppEntry() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const setAuth = useStore(s => s.setAuth);
@@ -108,11 +84,10 @@ function TelegramEntry() {
 
   useEffect(() => {
     telegram.init();
-
     async function boot() {
       try {
-        const user  = telegram.getUser();
-        const phone = user?.phone_number || null;
+        const user   = telegram.getUser();
+        const phone  = user?.phone_number || null;
         const result = await initApp(phone);
         setAuth(result.role, result.account);
       } catch (err) {
@@ -121,7 +96,6 @@ function TelegramEntry() {
         setLoading(false);
       }
     }
-
     boot();
   }, []);
 
@@ -130,41 +104,24 @@ function TelegramEntry() {
   if (error) {
     return (
       <div className="loading-page">
-        <div style={{ fontSize: 32 }}>⚠️</div>
-        <span style={{ color: 'var(--red)', textAlign: 'center', padding: '0 24px' }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+        <div style={{ color: 'var(--red)', textAlign: 'center', padding: '0 32px', fontSize: 14 }}>
           {error}
-        </span>
+        </div>
       </div>
     );
   }
 
-  // Route to correct portal based on role
-  if (role === 'cafe_owner') return <CafeOwnerApp />;
   if (role === 'admin')      return <AdminApp />;
+  if (role === 'cafe_owner') return <CafeOwnerApp />;
   return <CustomerApp />;
 }
 
-
-// ============================================================
-// ROOT APP
-// This is the top level component.
-// /admin/login → AdminLogin page (no auth needed)
-// /admin/*     → AdminApp (needs JWT)
-// /*           → TelegramEntry (detects role via Telegram)
-// ============================================================
+// ── Root ──────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Admin login — standalone page, no Telegram needed */}
-        <Route path="/admin/login" element={<AdminLogin />} />
-
-        {/* Admin portal — protected by JWT */}
-        <Route path="/admin/*" element={<AdminApp />} />
-
-        {/* Everything else — goes through Telegram role detection */}
-        <Route path="/*" element={<TelegramEntry />} />
-      </Routes>
+      <AppEntry />
     </BrowserRouter>
   );
 }
