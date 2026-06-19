@@ -6,19 +6,17 @@ const router = express.Router();
 router.use(telegramAuth);
 
 // ── GET /api/customer/cafes ───────────────────────────────────
-// List all active cafes + promotions for home screen
 router.get('/cafes', async (req, res) => {
   try {
     const cafes = await pool.query(`
       SELECT id, name, description, logo_url, address, phone, service_fee
       FROM cafes WHERE is_active = true ORDER BY name ASC
     `);
-
     const promos = await pool.query(`
       SELECT id, cafe_id, image_url, title
-      FROM promotions WHERE is_active = true ORDER BY created_at DESC
+      FROM promotions WHERE is_active = true
+      ORDER BY created_at DESC
     `);
-
     res.json({ cafes: cafes.rows, promotions: promos.rows });
   } catch (err) {
     console.error(err.message);
@@ -28,11 +26,10 @@ router.get('/cafes', async (req, res) => {
 
 
 // ── GET /api/customer/account/:cafeId ────────────────────────
-// Get customer's per-cafe account (balance, credit, status)
 router.get('/account/:cafeId', async (req, res) => {
   try {
     const { telegram_id } = req.telegramUser;
-    const { cafeId } = req.params;
+    const { cafeId }      = req.params;
 
     const result = await pool.query(`
       SELECT pca.*, ga.name, ga.phone
@@ -53,44 +50,76 @@ router.get('/account/:cafeId', async (req, res) => {
 
 
 // ── POST /api/customer/account/:cafeId/register ──────────────
-// Register at a specific cafe — creates per-cafe account (pending)
+// Customer registers at a cafe.
+// Accepts name + phone from the registration form.
+// Updates global_account with the provided name/phone if changed.
+// Registration does NOT require wallet — cash/transfer orders
+// can be placed without an approved per_cafe_account.
 router.post('/account/:cafeId/register', async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { telegram_id } = req.telegramUser;
-    const { cafeId } = req.params;
+    const { cafeId }      = req.params;
+    const { name, phone } = req.body;
 
-    const ga = await pool.query(
-      'SELECT id FROM global_accounts WHERE telegram_id = $1', [telegram_id]
+    // Get global account
+    const ga = await client.query(
+      'SELECT * FROM global_accounts WHERE telegram_id = $1',
+      [telegram_id]
     );
-    if (ga.rows.length === 0) return res.status(404).json({ error: 'Global account not found' });
+    if (ga.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Global account not found' });
+    }
 
-    const existing = await pool.query(
+    // Update name/phone if customer provided them in the form
+    if (name || phone) {
+      await client.query(`
+        UPDATE global_accounts
+        SET name  = COALESCE(NULLIF($1, ''), name),
+            phone = COALESCE(NULLIF($2, ''), phone)
+        WHERE telegram_id = $3
+      `, [name, phone, telegram_id]);
+    }
+
+    // Check if already registered
+    const existing = await client.query(
       'SELECT * FROM per_cafe_accounts WHERE global_account_id = $1 AND cafe_id = $2',
       [ga.rows[0].id, cafeId]
     );
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Already registered at this cafe', account: existing.rows[0] });
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error:   'Already registered at this cafe',
+        account: existing.rows[0]
+      });
     }
 
-    const result = await pool.query(`
+    // Create per-cafe account (pending approval)
+    const result = await client.query(`
       INSERT INTO per_cafe_accounts (global_account_id, cafe_id)
       VALUES ($1, $2) RETURNING *
     `, [ga.rows[0].id, cafeId]);
 
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
 
 // ── GET /api/customer/account/:cafeId/history ────────────────
-// Orders + deposits history at a specific cafe
 router.get('/account/:cafeId/history', async (req, res) => {
   try {
     const { telegram_id } = req.telegramUser;
-    const { cafeId } = req.params;
+    const { cafeId }      = req.params;
 
     const pcaResult = await pool.query(`
       SELECT pca.id FROM per_cafe_accounts pca
@@ -98,7 +127,9 @@ router.get('/account/:cafeId/history', async (req, res) => {
       WHERE ga.telegram_id = $1 AND pca.cafe_id = $2
     `, [telegram_id, cafeId]);
 
-    if (pcaResult.rows.length === 0) return res.status(404).json({ error: 'No account at this cafe' });
+    if (pcaResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No account at this cafe' });
+    }
     const pcaId = pcaResult.rows[0].id;
 
     const orders = await pool.query(`

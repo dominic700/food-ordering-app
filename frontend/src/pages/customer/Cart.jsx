@@ -14,45 +14,54 @@ const TRANSFER_PROVIDERS = [
 ];
 
 export default function Cart() {
-  const { cafeId } = useParams();
-  const navigate   = useNavigate();
+  const { cafeId }  = useParams();
+  const navigate    = useNavigate();
   const { cafeAccount, loading: ctxLoading } = useCafeContext();
 
-  const cart           = useStore(s => s.cart);
-  const addToCart      = useStore(s => s.addToCart);
-  const removeFromCart = useStore(s => s.removeFromCart);
+  const cart            = useStore(s => s.cart);
+  const addToCart       = useStore(s => s.addToCart);
+  const removeFromCart  = useStore(s => s.removeFromCart);
   const removeItemFully = useStore(s => s.removeItemFully);
-  const clearCart      = useStore(s => s.clearCart);
+  const clearCart       = useStore(s => s.clearCart);
 
-  const [paymentMethod, setPaymentMethod]   = useState('wallet');
+  const [paymentMethod,    setPaymentMethod]    = useState('cash');
   const [transferProvider, setTransferProvider] = useState('telebirr');
   const [transactionNumber, setTransactionNumber] = useState('');
-  const [note, setNote]       = useState('');
-  const [placing, setPlacing] = useState(false);
-  const [success, setSuccess] = useState(null);
+  const [note,     setNote]     = useState('');
+  const [placing,  setPlacing]  = useState(false);
+  const [success,  setSuccess]  = useState(null);
+
+  const isApproved = cafeAccount?.status === 'approved';
 
   // Totals
-  const subtotal     = cart.reduce((s, i) => s + i.base_price * i.quantity, 0);
-  const feeTotal     = cart.reduce((s, i) => s + (i.service_fee || 0) * i.quantity, 0);
-  const listTotal    = cart.reduce((s, i) => s + i.list_price * i.quantity, 0);
-  const walletTotal  = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotal      = cart.reduce((s, i) => s + i.base_price * i.quantity, 0);
+  const feeTotal      = cart.reduce((s, i) => s + (i.service_fee || 0) * i.quantity, 0);
+  const listTotal     = cart.reduce((s, i) => s + i.list_price * i.quantity, 0);
+  const walletTotal   = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const discountTotal = listTotal - walletTotal;
 
-  const balance      = parseFloat(cafeAccount?.balance || 0);
-  const creditLimit  = parseFloat(cafeAccount?.credit_limit || 0);
-  const creditUsed   = parseFloat(cafeAccount?.credit_used || 0);
-  const creditAvail  = creditLimit - creditUsed;
+  const balance     = parseFloat(cafeAccount?.balance || 0);
+  const creditLimit = parseFloat(cafeAccount?.credit_limit || 0);
+  const creditUsed  = parseFloat(cafeAccount?.credit_used || 0);
+  const creditAvail = creditLimit - creditUsed;
   const canAffordWallet = (balance + creditAvail) >= walletTotal;
 
-  // Cash and transfer pay full list price (no discount)
+  // Wallet uses discounted price, cash/transfer use list price
   const total = paymentMethod === 'wallet' ? walletTotal : listTotal;
 
   async function handlePlaceOrder() {
     if (cart.length === 0) return;
 
-    if (paymentMethod === 'wallet' && !canAffordWallet) {
-      return telegram.alert('Insufficient balance and credit. Please deposit money or choose Cash payment.');
+    // Wallet requires approved account
+    if (paymentMethod === 'wallet') {
+      if (!isApproved) {
+        return telegram.alert('You need an approved account to pay with wallet. Please register at this cafe first or choose Cash / Transfer.');
+      }
+      if (!canAffordWallet) {
+        return telegram.alert('Insufficient balance and credit. Please deposit money or choose Cash / Transfer payment.');
+      }
     }
+
     if (paymentMethod === 'transfer' && !transactionNumber.trim()) {
       return telegram.alert('Please enter the transaction number.');
     }
@@ -64,8 +73,8 @@ export default function Cart() {
       let paymentInfo = { payment_method: 'wallet' };
       if (paymentMethod === 'transfer') {
         paymentInfo = {
-          payment_method:    'transfer',
-          transfer_provider: transferProvider,
+          payment_method:     'transfer',
+          transfer_provider:  transferProvider,
           transaction_number: transactionNumber.trim(),
         };
       } else if (paymentMethod === 'cash') {
@@ -83,7 +92,7 @@ export default function Cart() {
     }
   }
 
-  if (ctxLoading) return <Spinner fullPage label="Loading cart..." />;
+  if (ctxLoading) return <Spinner fullPage label="Loading..." />;
 
   // ── Success screen ─────────────────────────────────────────
   if (success) {
@@ -93,28 +102,26 @@ export default function Cart() {
         <div style={{ fontSize: 64, marginBottom: 16 }}>{isCash ? '💵' : '✅'}</div>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Order Placed!</div>
 
-        {isCash ? (
+        {isCash && (
           <div style={{ background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 12, padding: '14px 20px', margin: '0 24px 16px', fontSize: 14, color: '#c2410c', lineHeight: 1.6 }}>
             ⚠️ <strong>Cash Payment</strong><br />
-            Please prepare <strong>{total.toFixed(2)} ETB</strong> in cash.<br />
+            Prepare <strong>{total.toFixed(2)} ETB</strong> in cash.<br />
             Pay the cafe when you collect your order.
           </div>
-        ) : (
+        )}
+
+        {!isCash && (
           <div style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 16, padding: '0 32px' }}>
             {paymentMethod === 'transfer'
-              ? "Transfer received. The cafe will prepare your order."
-              : "Your order is waiting for the cafe's approval."}
+              ? 'Transfer received. The cafe will prepare your order.'
+              : 'Your order is waiting for the cafe approval.'}
           </div>
         )}
 
         <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)', fontSize: 22, fontWeight: 800, marginBottom: 32 }}>
           {total.toFixed(2)} ETB
         </div>
-        <button
-          className="btn btn-red"
-          style={{ maxWidth: 240 }}
-          onClick={() => navigate(`/cafe/${cafeId}/menu`)}
-        >
+        <button className="btn btn-red" style={{ maxWidth: 240 }} onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
           Back to Menu
         </button>
         <BottomNav variant="customer-cafe" cafeId={cafeId} active="cart" />
@@ -165,7 +172,7 @@ export default function Cart() {
                 <div className="cart-item-price">{parseFloat(item.price).toFixed(2)} ETB</div>
                 {parseFloat(item.discount_percent || 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--green)' }}>
-                    {item.discount_percent}% off applied
+                    {item.discount_percent}% off with wallet
                   </div>
                 )}
                 <div className="qty-ctrl">
@@ -193,7 +200,7 @@ export default function Cart() {
           )}
           {discountTotal > 0 && paymentMethod === 'wallet' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'var(--green)' }}>
-              <span>Discount</span>
+              <span>Wallet Discount</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>−{discountTotal.toFixed(2)} ETB</span>
             </div>
           )}
@@ -209,26 +216,21 @@ export default function Cart() {
         {/* Payment Method */}
         <div className="section-label">Payment Method</div>
 
-        {/* Wallet & Credit */}
+        {/* Cash — shown first, always available */}
         <div
-          className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`}
-          onClick={() => setPaymentMethod('wallet')}
+          className={`payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
+          onClick={() => setPaymentMethod('cash')}
         >
-          <div className={`payment-radio ${paymentMethod === 'wallet' ? 'selected' : ''}`}>
-            {paymentMethod === 'wallet' && <div className="payment-radio-dot" />}
+          <div className={`payment-radio ${paymentMethod === 'cash' ? 'selected' : ''}`}>
+            {paymentMethod === 'cash' && <div className="payment-radio-dot" />}
           </div>
           <div className="payment-info">
-            <div className="payment-name">👛 Wallet Balance &amp; Credit</div>
-            <div className="payment-desc">
-              Balance: {balance.toFixed(2)} ETB · Credit: {creditAvail.toFixed(2)} ETB
-            </div>
+            <div className="payment-name">💵 Pay with Cash</div>
+            <div className="payment-desc">Pay directly to the cafe — no registration needed</div>
           </div>
-          <span className={`badge ${canAffordWallet ? 'badge-approved' : 'badge-cancelled'}`}>
-            {canAffordWallet ? 'Sufficient' : 'Low'}
-          </span>
         </div>
 
-        {/* Pay via Transfer */}
+        {/* Transfer — always available */}
         <div
           className={`payment-option ${paymentMethod === 'transfer' ? 'selected' : ''}`}
           onClick={() => setPaymentMethod('transfer')}
@@ -238,7 +240,7 @@ export default function Cart() {
           </div>
           <div className="payment-info">
             <div className="payment-name">🏦 Pay via Transfer</div>
-            <div className="payment-desc">Telebirr, CBE Birr, or Bank Transfer</div>
+            <div className="payment-desc">Telebirr, CBE Birr, or Bank — no registration needed</div>
           </div>
         </div>
 
@@ -247,12 +249,7 @@ export default function Cart() {
           <div style={{ marginBottom: 10, padding: '12px 14px', background: 'var(--bg)', borderRadius: 10 }}>
             <div className="input-group" style={{ marginBottom: 10 }}>
               <label className="input-label">Provider</label>
-              <select
-                className="input"
-                style={{ paddingLeft: 14 }}
-                value={transferProvider}
-                onChange={e => setTransferProvider(e.target.value)}
-              >
+              <select className="input" style={{ paddingLeft: 14 }} value={transferProvider} onChange={e => setTransferProvider(e.target.value)}>
                 {TRANSFER_PROVIDERS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
@@ -271,41 +268,43 @@ export default function Cart() {
           </div>
         )}
 
-        {/* Cash Payment */}
-        <div
-          className={`payment-option ${paymentMethod === 'cash' ? 'selected' : ''}`}
-          onClick={() => setPaymentMethod('cash')}
-          style={{ marginBottom: 16 }}
-        >
-          <div className={`payment-radio ${paymentMethod === 'cash' ? 'selected' : ''}`}>
-            {paymentMethod === 'cash' && <div className="payment-radio-dot" />}
-          </div>
-          <div className="payment-info">
-            <div className="payment-name">💵 Pay with Cash</div>
-            <div className="payment-desc">Pay the cafe directly when you collect your order</div>
-          </div>
-        </div>
-
-        {/* Cash warning banner */}
-        {paymentMethod === 'cash' && (
-          <div style={{
-            background: '#fff3e0',
-            border: '1.5px solid #f97316',
-            borderRadius: 10,
-            padding: '12px 14px',
-            marginBottom: 16,
-            fontSize: 13,
-            color: '#c2410c',
-            lineHeight: 1.6,
-          }}>
-            ⚠️ <strong>Cash Payment Selected</strong><br />
-            Please prepare <strong>{total.toFixed(2)} ETB</strong> in cash.<br />
-            The cafe will be notified to collect payment from you.
+        {/* Wallet — only shown if approved */}
+        {isApproved && (
+          <div
+            className={`payment-option ${paymentMethod === 'wallet' ? 'selected' : ''}`}
+            onClick={() => setPaymentMethod('wallet')}
+          >
+            <div className={`payment-radio ${paymentMethod === 'wallet' ? 'selected' : ''}`}>
+              {paymentMethod === 'wallet' && <div className="payment-radio-dot" />}
+            </div>
+            <div className="payment-info">
+              <div className="payment-name">👛 Wallet Balance &amp; Credit</div>
+              <div className="payment-desc">
+                Balance: {balance.toFixed(2)} ETB · Credit: {creditAvail.toFixed(2)} ETB
+              </div>
+            </div>
+            <span className={`badge ${canAffordWallet ? 'badge-approved' : 'badge-cancelled'}`}>
+              {canAffordWallet ? 'OK' : 'Low'}
+            </span>
           </div>
         )}
 
-        {/* Order summary */}
-        {paymentMethod === 'wallet' && (
+        {/* Not registered info */}
+        {!isApproved && (
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8 }}>
+            💡 Register at this cafe to unlock wallet and credit payments with discounts.
+          </div>
+        )}
+
+        {/* Cash warning */}
+        {paymentMethod === 'cash' && (
+          <div style={{ background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#c2410c', lineHeight: 1.6 }}>
+            ⚠️ Prepare <strong>{total.toFixed(2)} ETB</strong> in cash. The cafe will be notified to collect payment.
+          </div>
+        )}
+
+        {/* Wallet summary */}
+        {paymentMethod === 'wallet' && isApproved && (
           <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span style={{ color: 'var(--text2)' }}>From Balance</span>
@@ -342,15 +341,12 @@ export default function Cart() {
           />
         </div>
 
-        {/* Place Order button */}
         <button
           className="btn btn-red"
           onClick={handlePlaceOrder}
           disabled={placing}
         >
-          {placing
-            ? 'Placing order...'
-            : `Place Order · ${total.toFixed(2)} ETB`}
+          {placing ? 'Placing order...' : `Place Order · ${total.toFixed(2)} ETB`}
         </button>
 
         <div style={{ height: 90 }} />
