@@ -2,17 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_URL   = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // ── sendTelegramMessage ────────────────────────────────────────
-// Sends a message to a Telegram chat (a user's telegram_id).
-// Telegram delivers this as a normal chat message — the user's phone
-// shows a push notification with sound, exactly like any other chat
-// message. This is what gives us "notification + sound" without
-// needing any extra infrastructure (WebSockets, push servers, etc).
-//
-// Fails silently (logs only) so a notification failure never breaks
-// the main request (placing/approving an order).
 export async function sendTelegramMessage(chatId, text) {
   try {
     if (!BOT_TOKEN) {
@@ -25,7 +17,7 @@ export async function sendTelegramMessage(chatId, text) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id:    chatId,
         text,
         parse_mode: 'HTML',
       }),
@@ -41,33 +33,59 @@ export async function sendTelegramMessage(chatId, text) {
 }
 
 
-// ── Message builders ────────────────────────────────────────────
-
-// Sent to the CAFE OWNER when a customer places a new order
+// ── newOrderMessage ────────────────────────────────────────────
+// Sent to CAFE OWNER when a new order arrives.
+// Cash orders get a special warning to collect payment.
 export function newOrderMessage(order, customerName, items) {
   const itemLines = items
     .map(i => `• ${i.quantity}x ${i.name} — ${parseFloat(i.item_total).toFixed(2)} ETB`)
     .join('\n');
 
+  const isCash     = order.payment_method === 'cash';
+  const isTransfer = order.payment_method === 'transfer';
+
+  let paymentLine = '';
+  if (isCash) {
+    paymentLine = `💵 <b>CASH PAYMENT</b> — Collect money from customer!`;
+  } else if (isTransfer) {
+    paymentLine = `🏦 Transfer (${order.transfer_provider?.replace('_', ' ')})`;
+  } else {
+    paymentLine = `👛 Wallet / Credit`;
+  }
+
+  // Extra warning block for cash orders
+  const cashWarning = isCash
+    ? `\n\n⚠️ <b>IMPORTANT:</b> This customer will pay in <b>CASH</b>.\nDo not forget to collect <b>${parseFloat(order.total).toFixed(2)} ETB</b> from them!`
+    : '';
+
   return (
-    `🔔 <b>New Order Received</b>\n\n` +
+    `🔔 <b>New Order Received!</b>\n\n` +
     `Customer: ${customerName || 'Unknown'}\n` +
-    `Order ID: #${order.id.slice(0, 8)}\n\n` +
+    `Order ID: #${order.id?.slice(0, 8)}\n\n` +
     `${itemLines}\n\n` +
     `Total: <b>${parseFloat(order.total).toFixed(2)} ETB</b>\n` +
-    `Payment: ${order.payment_method === 'transfer'
-      ? `Transfer (${order.transfer_provider})`
-      : 'Wallet / Credit'}\n\n` +
+    `Payment: ${paymentLine}` +
+    `${cashWarning}\n\n` +
     `Open the app to review and approve this order.`
   );
 }
 
-// Sent to the CUSTOMER when the cafe approves their order
+
+// ── orderApprovedMessage ───────────────────────────────────────
+// Sent to CUSTOMER when cafe approves their order.
+// Cash orders remind the customer to bring their money.
 export function orderApprovedMessage(order, cafeName) {
+  const isCash = order.payment_method === 'cash';
+
+  const cashReminder = isCash
+    ? `\n\n💵 <b>Remember:</b> Please bring <b>${parseFloat(order.total).toFixed(2)} ETB</b> in cash to pay when you collect your order.`
+    : '';
+
   return (
     `✅ <b>Order Approved!</b>\n\n` +
-    `${cafeName} has accepted your order #${order.id.slice(0, 8)}.\n` +
+    `<b>${cafeName}</b> has accepted your order #${order.id?.slice(0, 8)}.\n` +
     `Total: <b>${parseFloat(order.total).toFixed(2)} ETB</b>\n\n` +
-    `It's now being prepared. 🎉`
+    `It is now being prepared. 🎉` +
+    `${cashReminder}`
   );
 }
