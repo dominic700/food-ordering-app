@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth } from '../middleware/auth.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 router.use(telegramAuth);
@@ -50,11 +51,20 @@ router.get('/account/:cafeId', async (req, res) => {
 
 
 // ── POST /api/customer/account/:cafeId/register ──────────────
-// Customer registers at a cafe.
-// Accepts name + phone from the registration form.
+// Customer registers at a cafe — for WALLET/CREDIT access.
+// Accepts name + phone from the registration popup form.
 // Updates global_account with the provided name/phone if changed.
-// Registration does NOT require wallet — cash/transfer orders
-// can be placed without an approved per_cafe_account.
+//
+// Cash/Transfer orders auto-create a minimal 'pending' per_cafe_account
+// behind the scenes (see routes/orders.js) purely for record-linking —
+// that does NOT count as a real registration request. So here we only
+// treat it as "already registered" if a request was explicitly and
+// recently submitted (within the last 5 minutes is too fragile to
+// detect server-side, so instead: if status is 'pending' or 'approved'
+// or 'suspended' we just re-use/refresh that row rather than blocking
+// the customer with a 409 — this makes the flow forgiving for repeat
+// taps and for customers who ordered cash first, then later open the
+// registration popup).
 router.post('/account/:cafeId/register', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -64,7 +74,6 @@ router.post('/account/:cafeId/register', async (req, res) => {
     const { cafeId }      = req.params;
     const { name, phone } = req.body;
 
-    // Get global account
     const ga = await client.query(
       'SELECT * FROM global_accounts WHERE telegram_id = $1',
       [telegram_id]
@@ -74,7 +83,6 @@ router.post('/account/:cafeId/register', async (req, res) => {
       return res.status(404).json({ error: 'Global account not found' });
     }
 
-    // Update name/phone if customer provided them in the form
     if (name || phone) {
       await client.query(`
         UPDATE global_accounts
@@ -84,27 +92,52 @@ router.post('/account/:cafeId/register', async (req, res) => {
       `, [name, phone, telegram_id]);
     }
 
-    // Check if already registered
     const existing = await client.query(
       'SELECT * FROM per_cafe_accounts WHERE global_account_id = $1 AND cafe_id = $2',
       [ga.rows[0].id, cafeId]
     );
+
+    let pca;
     if (existing.rows.length > 0) {
-      await client.query('ROLLBACK');
-      return res.status(409).json({
-        error:   'Already registered at this cafe',
-        account: existing.rows[0]
+      const current = existing.rows[0];
+      if (current.status === 'approved') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Already approved at this cafe', account: current });
+      }
+      // Re-submit / refresh a pending (possibly auto-created by an
+      // earlier cash/transfer order) or suspended account back to
+      // pending so it shows up in the cafe owner's Registrations page.
+      const refreshed = await client.query(`
+        UPDATE per_cafe_accounts
+        SET status = 'pending', registered_at = NOW(), approved_at = NULL
+        WHERE id = $1 RETURNING *
+      `, [current.id]);
+      pca = refreshed.rows[0];
+    } else {
+      const created = await client.query(`
+        INSERT INTO per_cafe_accounts (global_account_id, cafe_id)
+        VALUES ($1, $2) RETURNING *
+      `, [ga.rows[0].id, cafeId]);
+      pca = created.rows[0];
+    }
+
+    await client.query('COMMIT');
+
+    // Notify cafe owner of the new registration request
+    const ownerResult = await pool.query(
+      'SELECT telegram_id FROM cafe_owners WHERE cafe_id = $1', [cafeId]
+    );
+    if (ownerResult.rows.length > 0) {
+      createNotification({
+        telegramId: ownerResult.rows[0].telegram_id,
+        cafeId,
+        type:  'registration_request',
+        title: `New registration request`,
+        body:  `${name || ga.rows[0].name || 'A customer'} wants to register at your cafe.`
       });
     }
 
-    // Create per-cafe account (pending approval)
-    const result = await client.query(`
-      INSERT INTO per_cafe_accounts (global_account_id, cafe_id)
-      VALUES ($1, $2) RETURNING *
-    `, [ga.rows[0].id, cafeId]);
-
-    await client.query('COMMIT');
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(pca);
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err.message);

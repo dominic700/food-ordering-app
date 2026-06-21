@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import useStore from '../../store/useStore.js';
 import { getMenu } from '../../api/menu.js';
 import { registerAtCafe } from '../../api/customer.js';
@@ -14,6 +14,7 @@ import telegram from '../../telegram.js';
 export default function CafeMenu() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();
+  const [searchParams] = useSearchParams();
   const { cafe, cafeAccount, promotions, loading: ctxLoading, refreshAccount } = useCafeContext();
 
   const account        = useStore(s => s.account);
@@ -58,12 +59,15 @@ export default function CafeMenu() {
     }
   }, [account]);
 
-  // Show registration popup if not registered
+  // Show registration popup if not registered, OR if the customer
+  // navigated here from Profile's "Register at this Cafe" link
+  // (?register=1) — covers customers who skipped it the first time.
   useEffect(() => {
-    if (!ctxLoading && !cafeAccount) {
+    if (ctxLoading) return;
+    if (!cafeAccount || searchParams.get('register') === '1') {
       setShowRegSheet(true);
     }
-  }, [ctxLoading, cafeAccount]);
+  }, [ctxLoading, cafeAccount, searchParams]);
 
   function getQty(itemId) {
     return cart.find(i => i.menu_item_id === itemId)?.quantity || 0;

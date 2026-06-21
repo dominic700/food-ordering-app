@@ -745,3 +745,118 @@ html, body, #root {
 @keyframes spin    { to { transform: rotate(360deg); } }
 @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes sheetSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* ── Overlay + bottom sheet ("upper bile") ──────────────────────
+   Used for popup approval/detail panels that slide up from the
+   bottom over a dimmed backdrop (registrations, credit apps,
+   menu item editor, credit application form, etc). */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.sheet {
+  background: white;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 20px 20px 0 0;
+  padding: 12px 20px 28px;
+  max-height: 88vh;
+  overflow-y: auto;
+  animation: sheetSlideUp 0.25s ease;
+}
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+/* ── Upper sliding tab nav (for pages like Credit Applications) ─
+   Horizontally-scrollable pill tabs pinned under the header,
+   distinct from the bottom `.tabs` (which splits evenly). */
+.upper-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: white;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+.upper-tabs::-webkit-scrollbar { display: none; }
+.upper-tab {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.upper-tab.active {
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
+}
+.upper-tab-badge {
+  background: rgba(255,255,255,0.3);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+}
+.upper-tab:not(.active) .upper-tab-badge {
+  background: var(--red);
+  color: white;
+}
+
+/* ── Notification list row ──────────────────────────────────── */
+.notification-row {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: white;
+  cursor: pointer;
+}
+.notification-row.unread { background: #fff8f8; }
+.notification-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--red-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.notification-content { flex: 1; min-width: 0; }
+.notification-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.notification-body  { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+.notification-time   { font-size: 11px; color: var(--text3); }
+.notification-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+  margin-top: 6px;
+}

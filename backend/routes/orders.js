@@ -2,17 +2,24 @@ import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth, cafeOwnerAuth } from '../middleware/auth.js';
 import { sendTelegramMessage, newOrderMessage, orderApprovedMessage } from '../utils/telegramBot.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 const round2 = (n) => Math.round(n * 100) / 100;
 
 // ── POST /api/orders ──────────────────────────────────────────
 // payment_method:
-//   'wallet'   → balance + credit, discount applied
-//   'transfer' → Telebirr/CBE/Bank, no discount, needs tx number
-//   'cash'     → customer pays cash to cafe directly,
-//                no balance deducted, no tx number needed,
-//                cafe gets a "collect cash" notification
+//   'wallet'   -> REQUIRES an approved per_cafe_account. Pays from
+//                 balance first, then credit. Each menu item's own
+//                 discount_percent (set by the cafe owner per item)
+//                 reduces the price for wallet orders only.
+//   'transfer' -> Only requires a global_account (Telegram identity).
+//                 No registration/approval needed. Pays full list
+//                 price (no discount). Requires transfer_provider +
+//                 transaction_number.
+//   'cash'     -> Only requires a global_account. No registration
+//                 needed. Pays full list price (no discount). The
+//                 cafe owner gets a "collect cash" warning.
 router.post('/', telegramAuth, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -31,11 +38,9 @@ router.post('/', telegramAuth, async (req, res) => {
       return res.status(400).json({ error: 'cafe_id and items are required' });
     }
 
-    // Validate payment method
     const validMethods = ['wallet', 'transfer', 'cash'];
-    const method = validMethods.includes(payment_method) ? payment_method : 'wallet';
+    const method = validMethods.includes(payment_method) ? payment_method : 'cash';
 
-    // Transfer requires provider + transaction number
     if (method === 'transfer') {
       const validProviders = ['telebirr', 'cbe_birr', 'bank_transfer'];
       if (!transfer_provider || !transaction_number) {
@@ -48,36 +53,74 @@ router.post('/', telegramAuth, async (req, res) => {
       }
     }
 
-    // Get approved per-cafe account
-    const pcaResult = await client.query(`
-      SELECT pca.*, ga.name AS customer_name, ga.id AS global_account_id
-      FROM per_cafe_accounts pca
-      JOIN global_accounts ga ON pca.global_account_id = ga.id
-      WHERE ga.telegram_id = $1 AND pca.cafe_id = $2 AND pca.status = 'approved'
-    `, [telegram_id, cafe_id]);
+    // ── Resolve customer identity + per_cafe_account linkage ──
+    // 'wallet' REQUIRES an approved per_cafe_account.
+    // 'cash' / 'transfer' only need the global_account (Telegram
+    // identity) — registration at the cafe is NOT required.
+    let pca          = null;
+    let customerName = telegramName;
+    let pcaId        = null;
 
-    if (pcaResult.rows.length === 0) {
+    const gaResult = await client.query(
+      'SELECT * FROM global_accounts WHERE telegram_id = $1',
+      [telegram_id]
+    );
+    if (gaResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'No approved account at this cafe' });
+      return res.status(403).json({ error: 'Account not found. Please open the bot and send /start first.' });
     }
-    const pca = pcaResult.rows[0];
+    const globalAccount = gaResult.rows[0];
+    customerName = globalAccount.name || telegramName;
 
-    // Get cafe service fee
+    if (method === 'wallet') {
+      const pcaResult = await client.query(`
+        SELECT pca.* FROM per_cafe_accounts pca
+        WHERE pca.global_account_id = $1 AND pca.cafe_id = $2 AND pca.status = 'approved'
+      `, [globalAccount.id, cafe_id]);
+
+      if (pcaResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          error: 'You need an approved account at this cafe to pay with wallet balance or credit. Please register first, or choose Cash or Transfer instead.'
+        });
+      }
+      pca   = pcaResult.rows[0];
+      pcaId = pca.id;
+    } else {
+      // cash / transfer — link to any existing per_cafe_account,
+      // or create a minimal pending placeholder for record-keeping
+      const existingPca = await client.query(
+        'SELECT id FROM per_cafe_accounts WHERE global_account_id = $1 AND cafe_id = $2',
+        [globalAccount.id, cafe_id]
+      );
+      if (existingPca.rows.length > 0) {
+        pcaId = existingPca.rows[0].id;
+      } else {
+        const newPca = await client.query(`
+          INSERT INTO per_cafe_accounts (global_account_id, cafe_id, status)
+          VALUES ($1, $2, 'pending') RETURNING id
+        `, [globalAccount.id, cafe_id]);
+        pcaId = newPca.rows[0].id;
+      }
+    }
+
+    // ── Cafe + service fee ─────────────────────────────────────
     const cafeResult = await client.query(
-      'SELECT name, service_fee, balance_discount_percent FROM cafes WHERE id = $1 AND is_active = true',
+      'SELECT name, service_fee FROM cafes WHERE id = $1 AND is_active = true',
       [cafe_id]
     );
     if (cafeResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Cafe not found or inactive' });
     }
-    const cafe = cafeResult.rows[0];
+    const cafe              = cafeResult.rows[0];
     const serviceFeePerUnit = parseFloat(cafe.service_fee);
-    const discountPercent   = parseFloat(cafe.balance_discount_percent);
 
-    // Price each item
-    let subtotal = 0;
-    let feeTotal = 0;
+    // ── Price each item server-side ─────────────────────────────
+    let subtotal    = 0;
+    let feeTotal    = 0;
+    let listTotal   = 0;
+    let walletTotal = 0;
     const resolvedItems = [];
 
     for (const item of items) {
@@ -90,28 +133,39 @@ router.post('/', telegramAuth, async (req, res) => {
         return res.status(400).json({ error: `Item ${item.menu_item_id} not found or unavailable` });
       }
 
-      const basePrice = parseFloat(mi.rows[0].price);
-      const unitPrice = basePrice + serviceFeePerUnit;
-      const itemTotal = unitPrice * item.quantity;
+      const basePrice       = parseFloat(mi.rows[0].price);
+      const discountPercent = parseFloat(mi.rows[0].discount_percent || 0);
+      const listUnitPrice   = round2(basePrice + serviceFeePerUnit);
+      const walletUnitPrice = round2(listUnitPrice * (1 - discountPercent / 100));
 
-      subtotal += basePrice * item.quantity;
-      feeTotal  += serviceFeePerUnit * item.quantity;
+      const qty = item.quantity;
+      subtotal    += basePrice * qty;
+      feeTotal    += serviceFeePerUnit * qty;
+      listTotal   += listUnitPrice * qty;
+      walletTotal += walletUnitPrice * qty;
+
+      const chargedUnitPrice = method === 'wallet' ? walletUnitPrice : listUnitPrice;
 
       resolvedItems.push({
         menu_item_id: mi.rows[0].id,
-        name:       mi.rows[0].name,
-        price:      unitPrice,
-        quantity:   item.quantity,
-        item_total: itemTotal
+        name:         mi.rows[0].name,
+        price:        chargedUnitPrice,
+        quantity:     qty,
+        item_total:   round2(chargedUnitPrice * qty)
       });
     }
 
-    const total = subtotal + feeTotal;
+    subtotal    = round2(subtotal);
+    feeTotal    = round2(feeTotal);
+    listTotal   = round2(listTotal);
+    walletTotal = round2(walletTotal);
 
-    // ── PAYMENT LOGIC ─────────────────────────────────────────
+    const total          = method === 'wallet' ? walletTotal : listTotal;
+    const discountAmount = method === 'wallet' ? round2(listTotal - walletTotal) : 0;
+
+    // ── Payment logic ───────────────────────────────────────────
     let paidFromBalance = 0;
     let paidFromCredit  = 0;
-    let discountAmount  = 0;
 
     if (method === 'wallet') {
       const balance     = parseFloat(pca.balance);
@@ -121,7 +175,7 @@ router.post('/', telegramAuth, async (req, res) => {
         paidFromBalance = total;
       } else if (balance > 0) {
         paidFromBalance = balance;
-        const remaining = total - balance;
+        const remaining = round2(total - balance);
         if (remaining > creditAvail) {
           await client.query('ROLLBACK');
           return res.status(400).json({
@@ -140,19 +194,9 @@ router.post('/', telegramAuth, async (req, res) => {
         }
         paidFromCredit = total;
       }
-
-      // Apply discount only on wallet/credit payments
-      if (discountPercent > 0 && paidFromBalance > 0) {
-        discountAmount  = round2(paidFromBalance * (discountPercent / 100));
-        paidFromBalance = round2(paidFromBalance - discountAmount);
-      }
     }
-    // transfer → paidFromBalance/Credit stay 0, no discount
-    // cash     → paidFromBalance/Credit stay 0, no discount,
-    //            customer pays the cafe owner directly in cash
-    // ──────────────────────────────────────────────────────────
 
-    // Create order
+    // ── Create order ────────────────────────────────────────────
     const orderResult = await client.query(`
       INSERT INTO orders (
         cafe_id, per_cafe_account_id, subtotal, service_fee, total,
@@ -163,7 +207,7 @@ router.post('/', telegramAuth, async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12)
       RETURNING *
     `, [
-      cafe_id, pca.id, subtotal, feeTotal, total,
+      cafe_id, pcaId, subtotal, feeTotal, total,
       discountAmount, paidFromBalance, paidFromCredit,
       method,
       method === 'transfer' ? transfer_provider : null,
@@ -173,7 +217,6 @@ router.post('/', telegramAuth, async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    // Insert order items
     for (const item of resolvedItems) {
       await client.query(`
         INSERT INTO order_items (order_id, menu_item_id, name, price, quantity, item_total)
@@ -181,37 +224,46 @@ router.post('/', telegramAuth, async (req, res) => {
       `, [order.id, item.menu_item_id, item.name, item.price, item.quantity, item.item_total]);
     }
 
-    // Deduct balance/credit (0 for transfer and cash — no-op)
-    await client.query(`
-      UPDATE per_cafe_accounts
-      SET balance = balance - $1, credit_used = credit_used + $2
-      WHERE id = $3
-    `, [paidFromBalance, paidFromCredit, pca.id]);
+    if (method === 'wallet') {
+      await client.query(`
+        UPDATE per_cafe_accounts
+        SET balance = balance - $1, credit_used = credit_used + $2
+        WHERE id = $3
+      `, [paidFromBalance, paidFromCredit, pcaId]);
+    }
 
-    // Get cafe owner telegram_id for notification
     const ownerResult = await client.query(
       'SELECT telegram_id FROM cafe_owners WHERE cafe_id = $1', [cafe_id]
     );
 
     await client.query('COMMIT');
 
-    // Notify cafe owner
     if (ownerResult.rows.length > 0) {
+      const ownerTelegramId = ownerResult.rows[0].telegram_id;
+
       sendTelegramMessage(
-        ownerResult.rows[0].telegram_id,
-        newOrderMessage(order, pca.customer_name || telegramName, resolvedItems)
+        ownerTelegramId,
+        newOrderMessage(order, customerName, resolvedItems)
       );
+
+      createNotification({
+        telegramId: ownerTelegramId,
+        cafeId:     cafe_id,
+        type:       'new_order',
+        title:      method === 'cash' ? `New cash order — ${total.toFixed(2)} ETB` : `New order — ${total.toFixed(2)} ETB`,
+        body:       `${customerName} placed an order via ${method}.`
+      });
     }
 
     res.status(201).json({
       order,
       payment_summary: {
         subtotal,
-        service_fee:      feeTotal,
+        service_fee:       feeTotal,
         total,
-        discount_amount:  discountAmount,
-        amount_paid:      round2(paidFromBalance + paidFromCredit),
-        payment_method:   method,
+        discount_amount:   discountAmount,
+        amount_paid:       round2(paidFromBalance + paidFromCredit),
+        payment_method:    method,
         paid_from_balance: paidFromBalance,
         paid_from_credit:  paidFromCredit
       }
@@ -232,20 +284,29 @@ router.get('/cafe/pending', telegramAuth, cafeOwnerAuth, async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
     const result = await pool.query(`
-      SELECT o.*, ga.name AS customer_name, ga.phone AS customer_phone,
-        json_agg(json_build_object(
-          'name', oi.name, 'quantity', oi.quantity,
-          'price', oi.price, 'item_total', oi.item_total
-        )) AS items
+      SELECT o.*, ga.name AS customer_name, ga.phone AS customer_phone
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
       JOIN per_cafe_accounts pca ON o.per_cafe_account_id = pca.id
       JOIN global_accounts ga ON pca.global_account_id = ga.id
       WHERE o.cafe_id = $1 AND o.status = 'pending'
-      GROUP BY o.id, ga.name, ga.phone
       ORDER BY o.created_at ASC
     `, [cafe_id]);
-    res.json(result.rows);
+
+    const orderIds = result.rows.map(r => r.id);
+    let itemsByOrder = {};
+    if (orderIds.length > 0) {
+      const itemsResult = await pool.query(`
+        SELECT order_id, name, quantity, price, item_total
+        FROM order_items WHERE order_id = ANY($1)
+      `, [orderIds]);
+      itemsByOrder = itemsResult.rows.reduce((acc, row) => {
+        (acc[row.order_id] ||= []).push(row);
+        return acc;
+      }, {});
+    }
+
+    const orders = result.rows.map(o => ({ ...o, items: itemsByOrder[o.id] || [] }));
+    res.json(orders);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });
@@ -258,19 +319,29 @@ router.get('/cafe/history', telegramAuth, cafeOwnerAuth, async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
     const result = await pool.query(`
-      SELECT o.*, ga.name AS customer_name, ga.phone AS customer_phone,
-        json_agg(json_build_object(
-          'name', oi.name, 'quantity', oi.quantity, 'item_total', oi.item_total
-        )) AS items
+      SELECT o.*, ga.name AS customer_name, ga.phone AS customer_phone
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
       JOIN per_cafe_accounts pca ON o.per_cafe_account_id = pca.id
       JOIN global_accounts ga ON pca.global_account_id = ga.id
       WHERE o.cafe_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY o.id, ga.name, ga.phone
       ORDER BY o.created_at DESC
     `, [cafe_id]);
-    res.json(result.rows);
+
+    const orderIds = result.rows.map(r => r.id);
+    let itemsByOrder = {};
+    if (orderIds.length > 0) {
+      const itemsResult = await pool.query(`
+        SELECT order_id, name, quantity, price, item_total
+        FROM order_items WHERE order_id = ANY($1)
+      `, [orderIds]);
+      itemsByOrder = itemsResult.rows.reduce((acc, row) => {
+        (acc[row.order_id] ||= []).push(row);
+        return acc;
+      }, {});
+    }
+
+    const orders = result.rows.map(o => ({ ...o, items: itemsByOrder[o.id] || [] }));
+    res.json(orders);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });
@@ -293,7 +364,6 @@ router.patch('/:orderId/approve', telegramAuth, cafeOwnerAuth, async (req, res) 
     }
     const order = result.rows[0];
 
-    // Notify customer
     const infoResult = await pool.query(`
       SELECT ga.telegram_id, c.name AS cafe_name
       FROM orders o
@@ -306,6 +376,13 @@ router.patch('/:orderId/approve', telegramAuth, cafeOwnerAuth, async (req, res) 
     if (infoResult.rows.length > 0) {
       const { telegram_id, cafe_name } = infoResult.rows[0];
       sendTelegramMessage(telegram_id, orderApprovedMessage(order, cafe_name));
+      createNotification({
+        telegramId: telegram_id,
+        cafeId:     cafe_id,
+        type:       'order_approved',
+        title:      `Order approved — ${parseFloat(order.total).toFixed(2)} ETB`,
+        body:       `${cafe_name} accepted your order.`
+      });
     }
 
     res.json(order);
@@ -334,10 +411,10 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
 
     const order = orderResult.rows[0];
 
-    // Refund wallet/credit (0 for cash/transfer — no-op)
     await client.query(`
       UPDATE per_cafe_accounts
-      SET balance = balance + $1, credit_used = GREATEST(credit_used - $2, 0)
+      SET balance = balance + $1,
+          credit_used = GREATEST(credit_used - $2, 0)
       WHERE id = $3
     `, [order.paid_from_balance, order.paid_from_credit, order.per_cafe_account_id]);
 
@@ -347,7 +424,7 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
     );
 
     await client.query('COMMIT');
-    res.json({ message: 'Order cancelled and payment refunded' });
+    res.json({ message: 'Order cancelled' });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err.message);

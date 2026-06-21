@@ -188,6 +188,26 @@ CREATE TABLE promotions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- ── 13. NOTIFICATIONS ────────────────────────────────────────
+-- In-app notification history, separate from the Telegram bot
+-- messages. Powers the bell icon in all three portals (customer,
+-- cafe owner, admin). Identified by telegram_id so any role can
+-- query "my notifications" with one simple lookup.
+--
+-- type examples: 'new_order', 'order_approved', 'registration_request',
+--   'registration_approved', 'credit_application', 'credit_approved',
+--   'deposit_verified', 'promo_added'
+CREATE TABLE notifications (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_id BIGINT NOT NULL,
+    cafe_id     UUID REFERENCES cafes(id) ON DELETE CASCADE,
+    type        VARCHAR(40) NOT NULL,
+    title       VARCHAR(150) NOT NULL,
+    body        TEXT,
+    is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
 -- ── INDEXES ──────────────────────────────────────────────────
 CREATE INDEX idx_cafes_active          ON cafes(is_active);
 CREATE INDEX idx_cafe_owners_telegram  ON cafe_owners(telegram_id);
@@ -206,6 +226,8 @@ CREATE INDEX idx_deposits_pca          ON deposits(per_cafe_account_id);
 CREATE INDEX idx_deposits_status       ON deposits(status);
 CREATE INDEX idx_credit_apps_cafe      ON credit_applications(cafe_id);
 CREATE INDEX idx_credit_apps_status    ON credit_applications(status);
+CREATE INDEX idx_notifications_tg      ON notifications(telegram_id);
+CREATE INDEX idx_notifications_read    ON notifications(telegram_id, is_read);
 
 -- ── SEED ADMIN ───────────────────────────────────────────────
 -- Default admin account — change password after first login

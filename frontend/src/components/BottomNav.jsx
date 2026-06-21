@@ -65,6 +65,10 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
           <span className="nav-icon" style={active === 'orders' ? { color: 'var(--red)' } : {}}>📋</span>
           <span className="nav-label" style={active === 'orders' ? { color: 'var(--red)' } : {}}>Orders</span>
         </button>
+        <button className={`nav-item ${active === 'credit' ? 'active' : ''}`} onClick={() => go('/cafe-home/credit')}>
+          <span className="nav-icon" style={active === 'credit' ? { color: 'var(--red)' } : {}}>✨</span>
+          <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>Credit</span>
+        </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go('/cafe-home/profile')}>
           <span className="nav-icon" style={active === 'profile' ? { color: 'var(--red)' } : {}}>👤</span>
           <span className="nav-label" style={active === 'profile' ? { color: 'var(--red)' } : {}}>Profile</span>

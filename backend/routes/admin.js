@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth } from '../middleware/auth.js';
+import { uploadPromo, uploadCafeLogo } from '../middleware/upload.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
 // ── Admin role check middleware ────────────────────────────────
-// Checks that the Telegram user is in the admins table
 async function adminAuth(req, res, next) {
   try {
     const { telegram_id } = req.telegramUser;
@@ -103,6 +104,9 @@ router.get('/cafes/:cafeId', async (req, res) => {
 
 
 // ── POST /api/admin/cafes ─────────────────────────────────────
+// Creates a cafe. logo_url is just a string field — if the admin
+// uploaded an image first via /api/admin/cafes/upload-logo, the
+// returned URL is passed in here as logo_url.
 router.post('/cafes', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -115,13 +119,14 @@ router.post('/cafes', async (req, res) => {
     } = req.body;
 
     if (!name || !owner_telegram_id) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Cafe name and owner Telegram ID are required' });
     }
 
     const cafe = await client.query(`
       INSERT INTO cafes (name, description, logo_url, address, phone, service_fee)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [name, description, logo_url, address, phone, service_fee || 0]);
+    `, [name, description, logo_url || null, address, phone, service_fee || 0]);
 
     await client.query(`
       INSERT INTO cafe_owners (cafe_id, telegram_id, name, phone)
@@ -129,6 +134,15 @@ router.post('/cafes', async (req, res) => {
     `, [cafe.rows[0].id, owner_telegram_id, owner_name, owner_phone]);
 
     await client.query('COMMIT');
+
+    createNotification({
+      telegramId: owner_telegram_id,
+      cafeId:     cafe.rows[0].id,
+      type:       'cafe_created',
+      title:      `Welcome — ${cafe.rows[0].name} is set up!`,
+      body:       'An admin created your cafe account. Open the bot to access your dashboard.'
+    });
+
     res.status(201).json(cafe.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -184,6 +198,29 @@ router.patch('/cafes/:cafeId/toggle', async (req, res) => {
 });
 
 
+// ── POST /api/admin/cafes/upload-logo ─────────────────────────
+// Upload a cafe profile picture file. Returns { image_url } which
+// the admin frontend then sends as `logo_url` in POST/PATCH /cafes.
+// Mounted as its own route (not nested), and BEFORE export default,
+// so it is correctly registered — this is the file upload route
+// that was previously broken (declared after `export default router`,
+// so Express never registered it and the request fell through to
+// the SPA/404 handler, returning HTML and causing the
+// "Unexpected token '<', "<!DOCTYPE"..." JSON parse error).
+router.post('/cafes/upload-logo', (req, res) => {
+  uploadCafeLogo(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const imageUrl = `/uploads/cafes/${req.file.filename}`;
+    res.status(201).json({ image_url: imageUrl });
+  });
+});
+
+
 // ── GET /api/admin/promotions ─────────────────────────────────
 router.get('/promotions', async (req, res) => {
   try {
@@ -201,6 +238,7 @@ router.get('/promotions', async (req, res) => {
 
 
 // ── POST /api/admin/promotions ────────────────────────────────
+// Add a promotion from an already-known image_url (no file upload).
 router.post('/promotions', async (req, res) => {
   try {
     const { cafe_id, image_url, title } = req.body;
@@ -219,25 +257,15 @@ router.post('/promotions', async (req, res) => {
 });
 
 
-// ── DELETE /api/admin/promotions/:id ─────────────────────────
-router.delete('/promotions/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM promotions WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Promotion deleted' });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-export default router;
-
-
 // ── POST /api/admin/promotions/upload ─────────────────────────
-// Upload a promo image file → save to uploads/promos/
-// Store the public URL in promotions table
-import { uploadPromo } from '../middleware/upload.js';
-
+// Upload a promo image file directly -> saves to uploads/promos/
+// and creates the promotions row in one request. This route MUST
+// be registered before `export default router` at the bottom of
+// this file — previously it was placed AFTER the export, which
+// meant Express never mounted it, and any request to this path
+// fell through to the catch-all 404/SPA handler that returns HTML,
+// causing "Unexpected token '<', "<!DOCTYPE"..." on the frontend
+// when it tried to JSON.parse() the response.
 router.post('/promotions/upload', (req, res) => {
   uploadPromo(req, res, async (err) => {
     if (err) {
@@ -249,8 +277,6 @@ router.post('/promotions/upload', (req, res) => {
 
     try {
       const { title, cafe_id } = req.body;
-
-      // Build the public URL — served by Express static middleware
       const imageUrl = `/uploads/promos/${req.file.filename}`;
 
       const result = await pool.query(`
@@ -265,3 +291,17 @@ router.post('/promotions/upload', (req, res) => {
     }
   });
 });
+
+
+// ── DELETE /api/admin/promotions/:id ─────────────────────────
+router.delete('/promotions/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM promotions WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Promotion deleted' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+export default router;

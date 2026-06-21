@@ -4,6 +4,7 @@ import useStore from '../../store/useStore.js';
 import { getAccountHistory } from '../../api/customer.js';
 import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
+import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
@@ -45,7 +46,7 @@ export default function Profile() {
       <div className="header">
         <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
         <div className="header-title">Profile</div>
-        <div style={{ width: 36 }} />
+        <NotificationBell to="/notifications" />
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
@@ -112,6 +113,15 @@ export default function Profile() {
 
       {/* Menu links */}
       <div className="card" style={{ margin: '0 16px', padding: 0, overflow: 'hidden' }}>
+        {cafeAccount?.status !== 'approved' && (
+          <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/menu?register=1`)}>
+            <div className="profile-menu-icon" style={{ background: 'var(--red-light)' }}>📝</div>
+            <div className="profile-menu-label" style={{ color: 'var(--red)', fontWeight: 700 }}>
+              {cafeAccount?.status === 'pending' ? 'Registration Pending — Tap for Status' : 'Register at this Cafe'}
+            </div>
+            <div className="profile-chevron">›</div>
+          </div>
+        )}
         <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/orders`)}>
           <div className="profile-menu-icon">🧾</div>
           <div className="profile-menu-label">Order History</div>

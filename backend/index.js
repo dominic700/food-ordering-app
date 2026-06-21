@@ -4,13 +4,14 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import authRoutes     from './routes/auth.js';
-import adminRoutes    from './routes/admin.js';
-import cafeRoutes     from './routes/cafe.js';
-import customerRoutes from './routes/customer.js';
-import orderRoutes    from './routes/orders.js';
-import menuRoutes     from './routes/menu.js';
-import depositRoutes  from './routes/deposits.js';
+import authRoutes         from './routes/auth.js';
+import adminRoutes        from './routes/admin.js';
+import cafeRoutes         from './routes/cafe.js';
+import customerRoutes     from './routes/customer.js';
+import orderRoutes        from './routes/orders.js';
+import menuRoutes         from './routes/menu.js';
+import depositRoutes      from './routes/deposits.js';
+import notificationRoutes from './routes/notifications.js';
 
 dotenv.config();
 
@@ -31,13 +32,14 @@ app.use(cors({
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Routes ────────────────────────────────────────────────────
-app.use('/api/auth',     authRoutes);
-app.use('/api/admin',    adminRoutes);
-app.use('/api/cafe',     cafeRoutes);
-app.use('/api/customer', customerRoutes);
-app.use('/api/orders',   orderRoutes);
-app.use('/api/menu',     menuRoutes);
-app.use('/api/deposits', depositRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/admin',         adminRoutes);
+app.use('/api/cafe',          cafeRoutes);
+app.use('/api/customer',      customerRoutes);
+app.use('/api/orders',        orderRoutes);
+app.use('/api/menu',          menuRoutes);
+app.use('/api/deposits',      depositRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (req, res) => {

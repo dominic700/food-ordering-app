@@ -16,18 +16,22 @@ import Favorites   from './pages/customer/Favorites.jsx';
 import CreditApply from './pages/customer/CreditApply.jsx';
 
 // ── Cafe owner pages ──────────────────────────────────────────
-import Dashboard     from './pages/cafe/Dashboard.jsx';
-import CafeOrders    from './pages/cafe/Orders.jsx';
-import MenuEditor    from './pages/cafe/MenuEditor.jsx';
-import Customers     from './pages/cafe/Customers.jsx';
-import Registrations from './pages/cafe/Registrations.jsx';
-import CafeProfile   from './pages/cafe/CafeProfile.jsx';
+import Dashboard          from './pages/cafe/Dashboard.jsx';
+import CafeOrders         from './pages/cafe/Orders.jsx';
+import MenuEditor         from './pages/cafe/MenuEditor.jsx';
+import AddFood            from './pages/cafe/AddFood.jsx';
+import CreditApplications from './pages/cafe/CreditApplications.jsx';
+import Registrations      from './pages/cafe/Registrations.jsx';
+import CafeProfile        from './pages/cafe/CafeProfile.jsx';
 
 // ── Admin pages ───────────────────────────────────────────────
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import CreateCafe     from './pages/admin/CreateCafe.jsx';
 import CafeDetail     from './pages/admin/CafeDetail.jsx';
 import Promotions     from './pages/admin/Promotions.jsx';
+
+// ── Shared pages ──────────────────────────────────────────────
+import Notifications from './pages/shared/Notifications.jsx';
 
 
 // ── Customer App ──────────────────────────────────────────────
@@ -36,6 +40,7 @@ function CustomerApp() {
     <Routes>
       <Route path="/"                     element={<Home />} />
       <Route path="/favorites"            element={<Favorites />} />
+      <Route path="/notifications"        element={<Notifications />} />
       <Route path="/cafe/:cafeId/menu"    element={<CafeMenu />} />
       <Route path="/cafe/:cafeId/orders"  element={<Orders />} />
       <Route path="/cafe/:cafeId/cart"    element={<Cart />} />
@@ -54,8 +59,10 @@ function CafeOwnerApp() {
       <Route path="/cafe-home"               element={<Dashboard />} />
       <Route path="/cafe-home/orders"        element={<CafeOrders />} />
       <Route path="/cafe-home/menu"          element={<MenuEditor />} />
-      <Route path="/cafe-home/customers"     element={<Customers />} />
+      <Route path="/cafe-home/menu/add"      element={<AddFood />} />
+      <Route path="/cafe-home/credit"        element={<CreditApplications />} />
       <Route path="/cafe-home/registrations" element={<Registrations />} />
+      <Route path="/cafe-home/notifications" element={<Notifications />} />
       <Route path="/cafe-home/profile"       element={<CafeProfile />} />
       <Route path="*"                        element={<Navigate to="/cafe-home" />} />
     </Routes>
@@ -70,6 +77,7 @@ function AdminApp() {
       <Route path="/admin/create"        element={<CreateCafe />} />
       <Route path="/admin/cafe/:cafeId"  element={<CafeDetail />} />
       <Route path="/admin/promotions"    element={<Promotions />} />
+      <Route path="/admin/notifications" element={<Notifications />} />
       <Route path="*"                    element={<Navigate to="/admin" />} />
     </Routes>
   );
