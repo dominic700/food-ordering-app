@@ -10,6 +10,12 @@ export const submitDeposit = (cafeId, amount, paymentMethod, transactionNumber) 
     transaction_number: transactionNumber,
   });
 
+// Whether this customer has deposited enough (lifetime, verified) to
+// apply for credit at this cafe. Returns
+// { eligible, total_deposited, minimum_required, reason }
+export const getCreditEligibility = (cafeId) =>
+  request('GET', `/deposits/credit/eligibility?cafe_id=${cafeId}`);
+
 export const applyForCredit = (cafeId, requestedLimit) =>
   request('POST', '/deposits/credit/apply', { cafe_id: cafeId, requested_limit: requestedLimit });
 
