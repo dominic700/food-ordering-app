@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth, cafeOwnerAuth } from '../middleware/auth.js';
 import { createNotification } from '../utils/notifications.js';
+import { sendTelegramMessage, registrationApprovedMessage, creditLimitSetMessage } from '../utils/telegramBot.js';
 
 const router = express.Router();
 router.use(telegramAuth, cafeOwnerAuth);
@@ -21,7 +22,8 @@ router.get('/dashboard', async (req, res) => {
           AND created_at >= NOW() - INTERVAL '30 days')                                        AS approved_orders_30d,
         (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'approved')   AS total_customers,
         (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'pending')    AS pending_registrations,
-        (SELECT COUNT(*) FROM credit_applications WHERE cafe_id = $1 AND status = 'pending')  AS pending_credit_apps,
+        (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'approved'
+          AND balance < 0)                                                                      AS accounts_in_credit,
         (SELECT COALESCE(SUM(total),0) FROM orders WHERE cafe_id = $1
           AND status = 'approved' AND created_at >= NOW() - INTERVAL '30 days')               AS revenue_30d,
         (SELECT COALESCE(SUM(total),0) FROM orders WHERE cafe_id = $1
@@ -85,12 +87,19 @@ router.patch('/registrations/:pcaId/approve', async (req, res) => {
     const ga = await pool.query('SELECT telegram_id, name FROM global_accounts WHERE id = $1', [pca.global_account_id]);
     const cafe = await pool.query('SELECT name FROM cafes WHERE id = $1', [cafe_id]);
     if (ga.rows.length > 0) {
+      const cafeName = cafe.rows[0]?.name || 'The cafe';
+
+      sendTelegramMessage(
+        ga.rows[0].telegram_id,
+        registrationApprovedMessage(cafeName)
+      );
+
       createNotification({
         telegramId: ga.rows[0].telegram_id,
         cafeId:     cafe_id,
         type:       'registration_approved',
         title:      `Registration approved!`,
-        body:       `${cafe.rows[0]?.name || 'The cafe'} approved your account. You can now use wallet balance and credit.`
+        body:       `${cafeName} approved your account. You can now use wallet balance and credit.`
       });
     }
 
@@ -122,13 +131,14 @@ router.patch('/registrations/:pcaId/reject', async (req, res) => {
 
 
 // ── GET /api/cafe/customers ───────────────────────────────────
-// All approved customers, with their balance — used by both the
-// Customers page and the Credit Applications upper-tab page.
+// All approved customers, with their single signed balance and
+// credit_limit (the floor the cafe owner set) — used by the
+// Customers page.
 router.get('/customers', async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
     const result = await pool.query(`
-      SELECT pca.id, pca.balance, pca.credit_limit, pca.credit_used,
+      SELECT pca.id, pca.balance, pca.credit_limit,
              pca.status, pca.registered_at,
              ga.name, ga.phone, ga.telegram_id
       FROM per_cafe_accounts pca
@@ -145,10 +155,11 @@ router.get('/customers', async (req, res) => {
 
 
 // ── GET /api/cafe/customers/:pcaId ───────────────────────────
-// Single customer — full profile: balance, credit, last 30 days
-// orders AND deposits (each with the payer's name, even though
-// the payer is always the same customer here — included for
-// clarity/consistency with the design request).
+// Single customer — full profile: signed balance (positive =
+// has funds, negative = using credit), credit_limit, last 30
+// days orders AND deposits (each with the payer's name, even
+// though the payer is always the same customer here — included
+// for clarity/consistency with the design request).
 router.get('/customers/:pcaId', async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
@@ -216,7 +227,10 @@ router.get('/settings', async (req, res) => {
 
 // ── PATCH /api/cafe/customers/:pcaId/credit-limit ─────────────
 // Cafe owner sets a customer's credit limit directly from their
-// profile/detail page.
+// profile/detail page — no application, no deposit threshold,
+// can be set or changed at any time after the customer is
+// approved. This is how far NEGATIVE their balance is allowed
+// to go.
 router.patch('/customers/:pcaId/credit-limit', async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
@@ -231,7 +245,7 @@ router.patch('/customers/:pcaId/credit-limit', async (req, res) => {
       UPDATE per_cafe_accounts
       SET credit_limit = $1
       WHERE id = $2 AND cafe_id = $3 AND status = 'approved'
-      RETURNING id, global_account_id, balance, credit_limit, credit_used
+      RETURNING id, global_account_id, balance, credit_limit
     `, [limit, req.params.pcaId, cafe_id]);
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
@@ -240,12 +254,19 @@ router.patch('/customers/:pcaId/credit-limit', async (req, res) => {
     const ga = await pool.query('SELECT telegram_id FROM global_accounts WHERE id = $1', [pca.global_account_id]);
     const cafe = await pool.query('SELECT name FROM cafes WHERE id = $1', [cafe_id]);
     if (ga.rows.length > 0) {
+      const cafeName = cafe.rows[0]?.name || 'The cafe';
+
+      sendTelegramMessage(
+        ga.rows[0].telegram_id,
+        creditLimitSetMessage(cafeName, limit)
+      );
+
       createNotification({
         telegramId: ga.rows[0].telegram_id,
         cafeId:     cafe_id,
         type:       'credit_limit_set',
         title:      `Credit limit updated — ${limit.toFixed(2)} ETB`,
-        body:       `${cafe.rows[0]?.name || 'The cafe'} set your credit limit to ${limit.toFixed(2)} ETB.`
+        body:       `${cafeName} set your credit limit to ${limit.toFixed(2)} ETB.`
       });
     }
 

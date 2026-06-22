@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCustomers, getCustomerDetail, setCustomerCreditLimit } from '../../api/cafe.js';
-import { getCreditApplications, reviewCreditApplication } from '../../api/deposits.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -14,30 +13,28 @@ function getInitials(name) {
 const COLORS = ['#e63946', '#3b82f6', '#22c55e', '#f97316', '#8b5cf6'];
 function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.length]; }
 
-// Dedicated bottom-nav page for credit application approval, with
-// an "upper sliding nav" splitting Customers (with balance) vs
-// pending Credit Applications. Tapping a customer opens a detail
-// sheet with full profile + credit limit setter + deposit/order
-// history with payer name — all per the request.
+// Customers + Credit page, reached from the bottom nav's "Credit" tab.
+// No application/approval flow here anymore — the cafe owner sets a
+// customer's credit limit directly from their profile, at any time,
+// with no deposit threshold. Balance is a single SIGNED number:
+// positive = customer has funds, negative = customer is using credit
+// (they owe that amount, up to credit_limit).
 export default function CreditApplications() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('customers'); // 'customers' | 'applications'
 
   const [customers, setCustomers] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
 
-  const [selected, setSelected]       = useState(null); // customer detail sheet
-  const [detail, setDetail]           = useState(null);
+  const [selected, setSelected]           = useState(null); // customer detail sheet
+  const [detail, setDetail]               = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [creditLimit, setCreditLimit] = useState('');
-  const [savingLimit, setSavingLimit] = useState(false);
+  const [creditLimit, setCreditLimit]     = useState('');
+  const [savingLimit, setSavingLimit]     = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [custs, apps] = await Promise.all([getCustomers(), getCreditApplications()]);
+      const custs = await getCustomers();
       setCustomers(custs);
-      setApplications(apps);
     } catch (err) {
       console.error(err);
     } finally {
@@ -82,30 +79,6 @@ export default function CreditApplications() {
     }
   }
 
-  async function handleReviewApplication(appId, status) {
-    if (status === 'approved') {
-      const limit = prompt('Enter the approved credit limit (ETB):');
-      if (!limit || parseFloat(limit) <= 0) return;
-      try {
-        await reviewCreditApplication(appId, 'approved', parseFloat(limit));
-        telegram.haptic('success');
-        await load();
-      } catch (err) {
-        telegram.alert(err.message);
-      }
-    } else {
-      try {
-        await reviewCreditApplication(appId, 'rejected', null);
-        telegram.haptic();
-        await load();
-      } catch (err) {
-        telegram.alert(err.message);
-      }
-    }
-  }
-
-  const pendingApps = applications.filter(a => a.status === 'pending');
-
   if (loading) return <Spinner fullPage label="Loading..." />;
 
   return (
@@ -113,33 +86,22 @@ export default function CreditApplications() {
       {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
-        <div className="header-title">Credit & Customers</div>
+        <div className="header-title">Customers</div>
         <NotificationBell to="/cafe-home/notifications" />
       </div>
 
-      {/* Upper sliding tab nav */}
-      <div className="upper-tabs">
-        <button className={`upper-tab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>
-          👥 Customers
-          <span className="upper-tab-badge">{customers.length}</span>
-        </button>
-        <button className={`upper-tab ${tab === 'applications' ? 'active' : ''}`} onClick={() => setTab('applications')}>
-          ✨ Credit Applications
-          {pendingApps.length > 0 && <span className="upper-tab-badge">{pendingApps.length}</span>}
-        </button>
-      </div>
+      <div style={{ padding: '16px 16px 0' }}>
 
-      <div style={{ padding: '14px 16px 0' }}>
-
-        {/* ── Customers tab: list with balance ──────────────── */}
-        {tab === 'customers' && (
-          customers.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">👥</div>
-              <div className="empty-title">No registered customers yet</div>
-            </div>
-          ) : (
-            customers.map(customer => (
+        {customers.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">👥</div>
+            <div className="empty-title">No registered customers yet</div>
+          </div>
+        ) : (
+          customers.map(customer => {
+            const balance = parseFloat(customer.balance || 0);
+            const isNegative = balance < 0;
+            return (
               <div
                 key={customer.id}
                 className="card"
@@ -154,54 +116,18 @@ export default function CreditApplications() {
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || 'Unknown'}</div>
                     <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
                     <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
-                      <span style={{ color: 'var(--green)' }}>Balance: {parseFloat(customer.balance || 0).toFixed(0)} ETB</span>
-                      <span style={{ color: 'var(--blue)' }}>Credit limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB</span>
+                      <span style={{ color: isNegative ? 'var(--red)' : 'var(--green)', fontWeight: 700 }}>
+                        {isNegative ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
+                        {isNegative ? ' (owes)' : ' balance'}
+                      </span>
+                      <span style={{ color: 'var(--blue)' }}>Limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB</span>
                     </div>
                   </div>
                   <div style={{ color: 'var(--text3)', fontSize: 18 }}>›</div>
                 </div>
               </div>
-            ))
-          )
-        )}
-
-        {/* ── Applications tab ──────────────────────────────── */}
-        {tab === 'applications' && (
-          applications.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">✨</div>
-              <div className="empty-title">No credit applications</div>
-            </div>
-          ) : (
-            applications.map(app => (
-              <div key={app.id} className="card" style={{ marginBottom: 10, padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{app.customer_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>📞 {app.customer_phone}</div>
-                  </div>
-                  <StatusBadge status={app.status} />
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
-                  Requested: <strong>{parseFloat(app.requested_limit).toFixed(2)} ETB</strong>
-                  {app.approved_limit && <span> · Approved: <strong>{parseFloat(app.approved_limit).toFixed(2)} ETB</strong></span>}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: app.status === 'pending' ? 10 : 0 }}>
-                  Applied {new Date(app.applied_at).toLocaleDateString()}
-                </div>
-                {app.status === 'pending' && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => handleReviewApplication(app.id, 'rejected')}>
-                      ✕ Reject
-                    </button>
-                    <button className="btn btn-red btn-sm" style={{ flex: 1 }} onClick={() => handleReviewApplication(app.id, 'approved')}>
-                      ✓ Approve
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))
-          )
+            );
+          })
         )}
       </div>
 
@@ -224,22 +150,34 @@ export default function CreditApplications() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-              <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Balance</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>{parseFloat(selected.balance || 0).toFixed(0)} ETB</div>
-              </div>
-              <div style={{ background: '#eff6ff', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Credit Used</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#3b82f6' }}>{parseFloat(selected.credit_used || 0).toFixed(0)} ETB</div>
-              </div>
-            </div>
+            {/* Single signed balance — positive or negative */}
+            {(() => {
+              const balance = parseFloat(selected.balance || 0);
+              const isNegative = balance < 0;
+              return (
+                <div style={{
+                  background: isNegative ? '#ffeaea' : '#e8f5e9',
+                  borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 20,
+                }}>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>
+                    {isNegative ? 'Currently Owes' : 'Current Balance'}
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: isNegative ? 'var(--red)' : '#22c55e' }}>
+                    {isNegative ? '−' : ''}{Math.abs(balance).toFixed(2)} ETB
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                    Credit limit: {parseFloat(selected.credit_limit || 0).toFixed(2)} ETB
+                  </div>
+                </div>
+              );
+            })()}
 
-            {/* Set credit limit — directly here, in the customer's profile detail */}
+            {/* Set credit limit — directly here, in the customer's profile detail.
+                No application step: cafe owner can set/change this any time. */}
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Set Credit Limit</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-                Current limit: <strong>{parseFloat(selected.credit_limit || 0).toFixed(2)} ETB</strong>
+                How far negative this customer's balance can go (e.g. 500 ETB means they can owe up to 500 ETB before being blocked).
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input

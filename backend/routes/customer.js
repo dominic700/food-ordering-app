@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth } from '../middleware/auth.js';
 import { createNotification } from '../utils/notifications.js';
+import { sendTelegramMessage, newRegistrationMessage } from '../utils/telegramBot.js';
 
 const router = express.Router();
 router.use(telegramAuth);
@@ -123,17 +124,28 @@ router.post('/account/:cafeId/register', async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Notify cafe owner of the new registration request
+    // Notify cafe owner of the new registration request — both the
+    // Telegram bot push (sound + popup, primary alert) and the
+    // in-app notification history row (bell icon).
     const ownerResult = await pool.query(
       'SELECT telegram_id FROM cafe_owners WHERE cafe_id = $1', [cafeId]
     );
     if (ownerResult.rows.length > 0) {
+      const ownerTelegramId = ownerResult.rows[0].telegram_id;
+      const displayName = name || ga.rows[0].name || 'A customer';
+      const displayPhone = phone || ga.rows[0].phone;
+
+      sendTelegramMessage(
+        ownerTelegramId,
+        newRegistrationMessage(displayName, displayPhone)
+      );
+
       createNotification({
-        telegramId: ownerResult.rows[0].telegram_id,
+        telegramId: ownerTelegramId,
         cafeId,
         type:  'registration_request',
         title: `New registration request`,
-        body:  `${name || ga.rows[0].name || 'A customer'} wants to register at your cafe.`
+        body:  `${displayName} wants to register at your cafe.`
       });
     }
 

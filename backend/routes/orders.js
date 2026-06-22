@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth, cafeOwnerAuth } from '../middleware/auth.js';
-import { sendTelegramMessage, newOrderMessage, orderApprovedMessage } from '../utils/telegramBot.js';
+import { sendTelegramMessage, newOrderMessage, orderApprovedMessage, orderCancelledMessage } from '../utils/telegramBot.js';
 import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
@@ -164,34 +164,37 @@ router.post('/', telegramAuth, async (req, res) => {
     const discountAmount = method === 'wallet' ? round2(listTotal - walletTotal) : 0;
 
     // ── Payment logic ───────────────────────────────────────────
+    // balance is a single SIGNED number now (no separate credit pool).
+    // Spending always just subtracts from balance — it's allowed to
+    // go negative down to -credit_limit (the floor the cafe owner set
+    // directly on this customer's profile, with no application step).
+    // paid_from_balance / paid_from_credit are still recorded for
+    // reporting: how much of this order came out of an already-
+    // positive balance vs. how much pushed it into negative territory.
     let paidFromBalance = 0;
     let paidFromCredit  = 0;
 
     if (method === 'wallet') {
       const balance     = parseFloat(pca.balance);
-      const creditAvail = parseFloat(pca.credit_limit) - parseFloat(pca.credit_used);
+      const creditLimit = parseFloat(pca.credit_limit);
+      const balanceAfter = round2(balance - total);
 
+      if (balanceAfter < -creditLimit) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: 'Insufficient balance and credit',
+          balance, credit_limit: creditLimit, order_total: total
+        });
+      }
+
+      // Split purely for the reporting columns — actual deduction
+      // below is just `balance = balance - total`.
       if (balance >= total) {
         paidFromBalance = total;
       } else if (balance > 0) {
         paidFromBalance = balance;
-        const remaining = round2(total - balance);
-        if (remaining > creditAvail) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({
-            error: 'Insufficient balance and credit',
-            balance, credit_available: creditAvail, order_total: total
-          });
-        }
-        paidFromCredit = remaining;
+        paidFromCredit  = round2(total - balance);
       } else {
-        if (total > creditAvail) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({
-            error: 'Insufficient credit',
-            credit_available: creditAvail, order_total: total
-          });
-        }
         paidFromCredit = total;
       }
     }
@@ -227,9 +230,9 @@ router.post('/', telegramAuth, async (req, res) => {
     if (method === 'wallet') {
       await client.query(`
         UPDATE per_cafe_accounts
-        SET balance = balance - $1, credit_used = credit_used + $2
-        WHERE id = $3
-      `, [paidFromBalance, paidFromCredit, pcaId]);
+        SET balance = balance - $1
+        WHERE id = $2
+      `, [total, pcaId]);
     }
 
     const ownerResult = await client.query(
@@ -262,7 +265,7 @@ router.post('/', telegramAuth, async (req, res) => {
         service_fee:       feeTotal,
         total,
         discount_amount:   discountAmount,
-        amount_paid:       round2(paidFromBalance + paidFromCredit),
+        amount_paid:       total,
         payment_method:    method,
         paid_from_balance: paidFromBalance,
         paid_from_credit:  paidFromCredit
@@ -411,19 +414,54 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
 
     const order = orderResult.rows[0];
 
-    await client.query(`
-      UPDATE per_cafe_accounts
-      SET balance = balance + $1,
-          credit_used = GREATEST(credit_used - $2, 0)
-      WHERE id = $3
-    `, [order.paid_from_balance, order.paid_from_credit, order.per_cafe_account_id]);
+    // Refund: simply add the order's total back to balance — works
+    // correctly whether the order was paid from a positive balance,
+    // pushed it negative (credit), or both, since balance is now a
+    // single signed number. cash/transfer orders have total
+    // effectively 0 here for refund purposes since they never
+    // touched balance (paid_from_balance + paid_from_credit = 0).
+    const refundAmount = parseFloat(order.paid_from_balance) + parseFloat(order.paid_from_credit);
+    if (refundAmount > 0) {
+      await client.query(`
+        UPDATE per_cafe_accounts
+        SET balance = balance + $1
+        WHERE id = $2
+      `, [refundAmount, order.per_cafe_account_id]);
+    }
 
-    await client.query(
-      `UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`,
+    const cancelResult = await client.query(
+      `UPDATE orders SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1 RETURNING *`,
       [order.id]
     );
+    const cancelledOrder = cancelResult.rows[0];
+
+    const infoResult = await client.query(`
+      SELECT ga.telegram_id, c.name AS cafe_name
+      FROM per_cafe_accounts pca
+      JOIN global_accounts ga ON pca.global_account_id = ga.id
+      JOIN cafes c ON c.id = pca.cafe_id
+      WHERE pca.id = $1
+    `, [order.per_cafe_account_id]);
 
     await client.query('COMMIT');
+
+    if (infoResult.rows.length > 0) {
+      const { telegram_id, cafe_name } = infoResult.rows[0];
+
+      sendTelegramMessage(
+        telegram_id,
+        orderCancelledMessage(cancelledOrder, cafe_name)
+      );
+
+      createNotification({
+        telegramId: telegram_id,
+        cafeId:     cafe_id,
+        type:       'order_cancelled',
+        title:      `Order cancelled — ${parseFloat(cancelledOrder.total).toFixed(2)} ETB`,
+        body:       `${cafe_name} cancelled your order.${refundAmount > 0 ? ` ${refundAmount.toFixed(2)} ETB was refunded to your balance.` : ''}`
+      });
+    }
+
     res.json({ message: 'Order cancelled' });
   } catch (err) {
     await client.query('ROLLBACK');

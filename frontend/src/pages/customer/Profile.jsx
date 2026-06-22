@@ -35,9 +35,9 @@ export default function Profile() {
   const initials = (account?.name || '?')
     .split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
+  const balance     = parseFloat(cafeAccount?.balance || 0);
+  const isNegative  = balance < 0;
   const creditLimit = parseFloat(cafeAccount?.credit_limit || 0);
-  const creditUsed  = parseFloat(cafeAccount?.credit_used || 0);
-  const creditAvail = creditLimit - creditUsed;
 
   if (ctxLoading || loading) return <Spinner fullPage label="Loading profile..." />;
 
@@ -65,20 +65,23 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Balance card */}
-        <div className="balance-card" style={{ marginBottom: 16 }}>
-          <div className="balance-emoji">👛</div>
-          <div className="balance-label">Current Balance</div>
+        {/* Balance card — single signed number. Shows negative
+            (in credit / owes money) differently from positive
+            (has deposited funds available). */}
+        <div className="balance-card" style={{ marginBottom: 16, background: isNegative ? 'linear-gradient(135deg, #e63946, #c0000a)' : undefined }}>
+          <div className="balance-emoji">{isNegative ? '⚠️' : '👛'}</div>
+          <div className="balance-label">{isNegative ? 'You Owe' : 'Current Balance'}</div>
           <div className="balance-amount">
-            {parseFloat(cafeAccount?.balance || 0).toFixed(2)} <span>ETB</span>
+            {isNegative ? '−' : ''}{Math.abs(balance).toFixed(2)} <span>ETB</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 14, color: 'rgba(255,255,255,0.85)' }}>
-            <span>Credit limit: {creditLimit.toFixed(2)} ETB</span>
-            <span>Available: {creditAvail.toFixed(2)} ETB</span>
-          </div>
+          {creditLimit > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 14, color: 'rgba(255,255,255,0.85)' }}>
+              <span>Credit limit: {creditLimit.toFixed(2)} ETB</span>
+              <span>Remaining credit: {(creditLimit - Math.max(-balance, 0)).toFixed(2)} ETB</span>
+            </div>
+          )}
           <div className="balance-actions">
             <button className="btn btn-white" onClick={() => navigate(`/cafe/${cafeId}/deposit`)}>+ Deposit</button>
-            <button className="btn btn-white" onClick={() => navigate(`/cafe/${cafeId}/credit`)}>✨ Apply Credit</button>
           </div>
         </div>
 
@@ -130,11 +133,6 @@ export default function Profile() {
         <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
           <div className="profile-menu-icon">🍽️</div>
           <div className="profile-menu-label">Browse Menu</div>
-          <div className="profile-chevron">›</div>
-        </div>
-        <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/credit`)}>
-          <div className="profile-menu-icon">✨</div>
-          <div className="profile-menu-label">Apply for Credit</div>
           <div className="profile-chevron">›</div>
         </div>
         <div className="profile-menu-item" onClick={() => navigate('/')}>

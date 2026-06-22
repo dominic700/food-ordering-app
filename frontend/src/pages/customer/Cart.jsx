@@ -42,9 +42,11 @@ export default function Cart() {
 
   const balance     = parseFloat(cafeAccount?.balance || 0);
   const creditLimit = parseFloat(cafeAccount?.credit_limit || 0);
-  const creditUsed  = parseFloat(cafeAccount?.credit_used || 0);
-  const creditAvail = creditLimit - creditUsed;
-  const canAffordWallet = (balance + creditAvail) >= walletTotal;
+  // balance is a single SIGNED number now. It can go as low as
+  // -creditLimit, so the most this order can spend is balance + creditLimit
+  // (e.g. balance=50, creditLimit=200 -> can spend up to 250 before blocked).
+  const spendable = balance + creditLimit;
+  const canAffordWallet = spendable >= walletTotal;
 
   // Wallet uses discounted price, cash/transfer use list price
   const total = paymentMethod === 'wallet' ? walletTotal : listTotal;
@@ -278,9 +280,12 @@ export default function Cart() {
               {paymentMethod === 'wallet' && <div className="payment-radio-dot" />}
             </div>
             <div className="payment-info">
-              <div className="payment-name">👛 Wallet Balance &amp; Credit</div>
+              <div className="payment-name">👛 Wallet Balance{creditLimit > 0 ? ' & Credit' : ''}</div>
               <div className="payment-desc">
-                Balance: {balance.toFixed(2)} ETB · Credit: {creditAvail.toFixed(2)} ETB
+                {balance < 0
+                  ? `You owe ${Math.abs(balance).toFixed(2)} ETB`
+                  : `Balance: ${balance.toFixed(2)} ETB`}
+                {creditLimit > 0 && ` · Credit limit: ${creditLimit.toFixed(2)} ETB`}
               </div>
             </div>
             <span className={`badge ${canAffordWallet ? 'badge-approved' : 'badge-cancelled'}`}>
@@ -306,24 +311,31 @@ export default function Cart() {
         {/* Wallet summary */}
         {paymentMethod === 'wallet' && isApproved && (
           <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ color: 'var(--text2)' }}>From Balance</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
-                {Math.min(balance, walletTotal).toFixed(2)} ETB
-              </span>
-            </div>
-            {walletTotal > balance && (
+            {balance > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ color: 'var(--text2)' }}>From Credit</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
-                  {Math.min(walletTotal - balance, creditAvail).toFixed(2)} ETB
+                <span style={{ color: 'var(--text2)' }}>From Balance</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
+                  {Math.min(balance, walletTotal).toFixed(2)} ETB
                 </span>
               </div>
             )}
+            {walletTotal > Math.max(balance, 0) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ color: 'var(--text2)' }}>From Credit</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
+                  {(walletTotal - Math.max(balance, 0)).toFixed(2)} ETB
+                </span>
+              </div>
+            )}
+            <div className="divider" style={{ margin: '8px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-              <span>Remaining Balance</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
-                {Math.max(balance - walletTotal, 0).toFixed(2)} ETB
+              <span>Balance After This Order</span>
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                color: (balance - walletTotal) < 0 ? 'var(--red)' : 'var(--green)'
+              }}>
+                {(balance - walletTotal) < 0 ? '−' : ''}{Math.abs(balance - walletTotal).toFixed(2)} ETB
+                {(balance - walletTotal) < 0 ? ' (owed)' : ''}
               </span>
             </div>
           </div>

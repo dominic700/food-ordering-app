@@ -89,3 +89,77 @@ export function orderApprovedMessage(order, cafeName) {
     `${cashReminder}`
   );
 }
+
+
+// ── orderCancelledMessage ───────────────────────────────────────
+// Sent to CUSTOMER when the cafe cancels/rejects their order.
+// Wallet orders mention the refund since balance was already
+// deducted at order time and gets restored on cancellation.
+export function orderCancelledMessage(order, cafeName) {
+  const wasWallet = order.payment_method === 'wallet';
+  const refundAmount = parseFloat(order.paid_from_balance || 0) + parseFloat(order.paid_from_credit || 0);
+
+  const refundNote = wasWallet && refundAmount > 0
+    ? `\n\n💰 <b>${refundAmount.toFixed(2)} ETB</b> has been refunded to your balance.`
+    : '';
+
+  return (
+    `❌ <b>Order Cancelled</b>\n\n` +
+    `<b>${cafeName}</b> cancelled your order #${order.id?.slice(0, 8)}.\n` +
+    `Total: <b>${parseFloat(order.total).toFixed(2)} ETB</b>` +
+    `${refundNote}\n\n` +
+    `If you have questions, please contact the cafe directly.`
+  );
+}
+
+
+// ── newRegistrationMessage ──────────────────────────────────────
+// Sent to CAFE OWNER when a customer requests to register
+// (wallet/credit access). Without this push message, the cafe
+// owner would only see the request if they happened to open the
+// in-app notification bell — easy to miss, so this is the primary
+// alert, same as new orders.
+export function newRegistrationMessage(customerName, customerPhone) {
+  return (
+    `📝 <b>New Registration Request</b>\n\n` +
+    `Customer: <b>${customerName || 'Unknown'}</b>\n` +
+    `Phone: ${customerPhone || 'N/A'}\n\n` +
+    `They want to register for wallet balance and credit payments at your cafe.\n` +
+    `Open the app to approve or reject this request.`
+  );
+}
+
+
+// ── registrationApprovedMessage ──────────────────────────────────
+// Sent to CUSTOMER when the cafe approves their registration.
+export function registrationApprovedMessage(cafeName) {
+  return (
+    `🎉 <b>Registration Approved!</b>\n\n` +
+    `<b>${cafeName}</b> approved your account.\n` +
+    `You can now pay with your wallet balance there.`
+  );
+}
+
+
+// ── depositVerifiedMessage ───────────────────────────────────────
+// Sent to CUSTOMER when their deposit is verified and added to balance.
+export function depositVerifiedMessage(amount, cafeName) {
+  return (
+    `💰 <b>Deposit Verified!</b>\n\n` +
+    `<b>${parseFloat(amount).toFixed(2)} ETB</b> has been added to your balance at <b>${cafeName}</b>.\n\n` +
+    `You can now order using your wallet.`
+  );
+}
+
+
+// ── creditLimitSetMessage ─────────────────────────────────────────
+// Sent to CUSTOMER when the cafe owner sets or updates their credit
+// limit directly from the customer's profile (no application step —
+// the cafe owner can do this any time after approving registration).
+export function creditLimitSetMessage(cafeName, limit) {
+  return (
+    `💳 <b>Credit Limit Set!</b>\n\n` +
+    `<b>${cafeName}</b> set your credit limit to <b>${parseFloat(limit).toFixed(2)} ETB</b>.\n\n` +
+    `You can use credit once your balance reaches zero, up to this limit.`
+  );
+}

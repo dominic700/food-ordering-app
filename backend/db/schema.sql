@@ -51,13 +51,21 @@ CREATE TABLE global_accounts (
 
 -- ── 5. PER-CAFE ACCOUNTS ─────────────────────────────────────
 -- Created when customer registers at a specific cafe.
+--
+-- balance: a single SIGNED running total.
+--   positive -> customer has deposited money available to spend
+--   negative -> customer is using credit (they owe this much)
+-- credit_limit: how far NEGATIVE the balance is allowed to go,
+--   set directly by the cafe owner from the customer's profile
+--   at any time (no application/approval flow, no deposit
+--   threshold required). e.g. credit_limit = 500 means balance
+--   can drop as low as -500.
 CREATE TABLE per_cafe_accounts (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     global_account_id UUID NOT NULL REFERENCES global_accounts(id) ON DELETE CASCADE,
     cafe_id           UUID NOT NULL REFERENCES cafes(id) ON DELETE CASCADE,
     balance           NUMERIC(10,2) NOT NULL DEFAULT 0,
     credit_limit      NUMERIC(10,2) NOT NULL DEFAULT 0,
-    credit_used       NUMERIC(10,2) NOT NULL DEFAULT 0,
     status            VARCHAR(20) NOT NULL DEFAULT 'pending'
                       CHECK (status IN ('pending','approved','suspended')),
     registered_at     TIMESTAMP DEFAULT NOW(),
@@ -110,10 +118,20 @@ CREATE TABLE menu_items (
 --                    (this is the amount actually paid / deducted)
 --
 -- payment_method:
---   'wallet'   -> paid from balance AND/OR credit (combined). Per-item
---                 discounts (set by the cafe owner on the menu) apply.
---   'transfer' -> paid externally via Telebirr/CBE/Bank, auto-verified,
---                 wallet balance & credit are NOT touched, no discount.
+--   'wallet'   -> deducted from per_cafe_accounts.balance, a single
+--                 SIGNED number (can go negative, down to -credit_limit).
+--                 paid_from_balance/paid_from_credit below are kept only
+--                 as a record of how much of this order's total came from
+--                 an already-positive balance vs. pushed the account
+--                 negative (into credit) — for reporting purposes.
+--                 Per-item discounts apply. Requires an approved
+--                 per_cafe_account.
+--   'transfer' -> paid externally via Telebirr/CBE/Bank, balance is NOT
+--                 touched, no discount. Only needs a global_account
+--                 (no cafe registration required).
+--   'cash'     -> paid in person to the cafe, balance is NOT touched,
+--                 no discount. Only needs a global_account (no cafe
+--                 registration required).
 CREATE TABLE orders (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cafe_id             UUID NOT NULL REFERENCES cafes(id) ON DELETE CASCADE,
@@ -125,7 +143,7 @@ CREATE TABLE orders (
     paid_from_balance   NUMERIC(10,2) NOT NULL DEFAULT 0,
     paid_from_credit    NUMERIC(10,2) NOT NULL DEFAULT 0,
     payment_method      VARCHAR(20) NOT NULL DEFAULT 'wallet'
-                        CHECK (payment_method IN ('wallet','transfer')),
+                        CHECK (payment_method IN ('wallet','transfer','cash')),
     transfer_provider   VARCHAR(30)
                         CHECK (transfer_provider IN ('telebirr','cbe_birr','bank_transfer')),
     transaction_number  VARCHAR(100),
@@ -163,21 +181,7 @@ CREATE TABLE deposits (
     verified_at         TIMESTAMP
 );
 
--- ── 11. CREDIT APPLICATIONS ──────────────────────────────────
-CREATE TABLE credit_applications (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    per_cafe_account_id UUID NOT NULL REFERENCES per_cafe_accounts(id) ON DELETE CASCADE,
-    cafe_id             UUID NOT NULL REFERENCES cafes(id) ON DELETE CASCADE,
-    requested_limit     NUMERIC(10,2) NOT NULL,
-    approved_limit      NUMERIC(10,2),
-    status              VARCHAR(20) NOT NULL DEFAULT 'pending'
-                        CHECK (status IN ('pending','approved','rejected')),
-    applied_at          TIMESTAMP DEFAULT NOW(),
-    reviewed_at         TIMESTAMP,
-    reviewed_by         UUID REFERENCES cafe_owners(id)
-);
-
--- ── 12. PROMOTIONS ───────────────────────────────────────────
+-- ── 11. PROMOTIONS ───────────────────────────────────────────
 -- Promo slider images shown on customer home screen
 CREATE TABLE promotions (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -188,15 +192,15 @@ CREATE TABLE promotions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- ── 13. NOTIFICATIONS ────────────────────────────────────────
+-- ── 12. NOTIFICATIONS ────────────────────────────────────────
 -- In-app notification history, separate from the Telegram bot
 -- messages. Powers the bell icon in all three portals (customer,
 -- cafe owner, admin). Identified by telegram_id so any role can
 -- query "my notifications" with one simple lookup.
 --
 -- type examples: 'new_order', 'order_approved', 'registration_request',
---   'registration_approved', 'credit_application', 'credit_approved',
---   'deposit_verified', 'promo_added'
+--   'registration_approved', 'credit_limit_set', 'deposit_verified',
+--   'promo_added', 'cafe_created'
 CREATE TABLE notifications (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     telegram_id BIGINT NOT NULL,
@@ -224,8 +228,6 @@ CREATE INDEX idx_orders_created        ON orders(created_at);
 CREATE INDEX idx_order_items_order     ON order_items(order_id);
 CREATE INDEX idx_deposits_pca          ON deposits(per_cafe_account_id);
 CREATE INDEX idx_deposits_status       ON deposits(status);
-CREATE INDEX idx_credit_apps_cafe      ON credit_applications(cafe_id);
-CREATE INDEX idx_credit_apps_status    ON credit_applications(status);
 CREATE INDEX idx_notifications_tg      ON notifications(telegram_id);
 CREATE INDEX idx_notifications_read    ON notifications(telegram_id, is_read);
 
