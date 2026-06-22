@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCustomers, getCustomerDetail, setCustomerCreditLimit } from '../../api/cafe.js';
+import { getCustomers, getCustomerDetail, setCustomerCreditLimit, getRegistrations } from '../../api/cafe.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -22,8 +22,9 @@ function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.l
 export default function CreditApplications() {
   const navigate = useNavigate();
 
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [customers, setCustomers]     = useState([]);
+  const [pendingRegs, setPendingRegs] = useState([]);
+  const [loading, setLoading]         = useState(true);
 
   const [selected, setSelected]           = useState(null); // customer detail sheet
   const [detail, setDetail]               = useState(null);
@@ -33,8 +34,9 @@ export default function CreditApplications() {
 
   const load = useCallback(async () => {
     try {
-      const custs = await getCustomers();
+      const [custs, regs] = await Promise.all([getCustomers(), getRegistrations()]);
       setCustomers(custs);
+      setPendingRegs(regs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -91,6 +93,33 @@ export default function CreditApplications() {
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
+
+        {/* Pending registrations banner — visible here so cafe owner
+            sees it no matter which tab they land on from the bell
+            notification. Tapping goes to the Registrations page
+            where the Approve / Reject buttons live. */}
+        {pendingRegs.length > 0 && (
+          <div
+            onClick={() => navigate('/cafe-home/registrations')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: '#fff3e0', border: '1.5px solid #f97316',
+              borderRadius: 12, padding: '12px 14px', marginBottom: 16,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 26 }}>📝</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#c2410c' }}>
+                {pendingRegs.length} registration request{pendingRegs.length > 1 ? 's' : ''} waiting
+              </div>
+              <div style={{ fontSize: 12, color: '#c2410c', marginTop: 2 }}>
+                Tap here to review, approve or reject
+              </div>
+            </div>
+            <span style={{ color: '#c2410c', fontSize: 20, fontWeight: 700 }}>›</span>
+          </div>
+        )}
 
         {customers.length === 0 ? (
           <div className="empty">
