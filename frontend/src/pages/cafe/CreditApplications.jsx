@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCustomers, getCustomerDetail, setCustomerCreditLimit, getRegistrations } from '../../api/cafe.js';
+import {
+  getCustomers, getCustomerDetail, setCustomerCreditLimit,
+  getRegistrations, approveRegistration, rejectRegistration
+} from '../../api/cafe.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -13,20 +16,19 @@ function getInitials(name) {
 const COLORS = ['#e63946', '#3b82f6', '#22c55e', '#f97316', '#8b5cf6'];
 function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.length]; }
 
-// Customers + Credit page, reached from the bottom nav's "Credit" tab.
-// No application/approval flow here anymore — the cafe owner sets a
-// customer's credit limit directly from their profile, at any time,
-// with no deposit threshold. Balance is a single SIGNED number:
-// positive = customer has funds, negative = customer is using credit
-// (they owe that amount, up to credit_limit).
 export default function CreditApplications() {
   const navigate = useNavigate();
 
-  const [customers, setCustomers]     = useState([]);
-  const [pendingRegs, setPendingRegs] = useState([]);
-  const [loading, setLoading]         = useState(true);
+  // upper tab: 'registrations' | 'customers'
+  const [tab, setTab] = useState('registrations');
 
-  const [selected, setSelected]           = useState(null); // customer detail sheet
+  const [registrations, setRegistrations] = useState([]);
+  const [customers, setCustomers]         = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [actionId, setActionId]           = useState(null);
+
+  // customer detail sheet
+  const [selected, setSelected]           = useState(null);
   const [detail, setDetail]               = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [creditLimit, setCreditLimit]     = useState('');
@@ -34,9 +36,12 @@ export default function CreditApplications() {
 
   const load = useCallback(async () => {
     try {
-      const [custs, regs] = await Promise.all([getCustomers(), getRegistrations()]);
+      const [regs, custs] = await Promise.all([
+        getRegistrations(),
+        getCustomers(),
+      ]);
+      setRegistrations(regs);
       setCustomers(custs);
-      setPendingRegs(regs);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,8 +49,41 @@ export default function CreditApplications() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Poll every 20s so new registrations appear automatically
+    const interval = setInterval(load, 20000);
+    return () => clearInterval(interval);
+  }, [load]);
 
+  // ── Registration actions ──────────────────────────────────────
+  async function handleApprove(pcaId) {
+    setActionId(pcaId);
+    try {
+      await approveRegistration(pcaId);
+      telegram.haptic('success');
+      await load();
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function handleReject(pcaId) {
+    setActionId(pcaId);
+    try {
+      await rejectRegistration(pcaId);
+      telegram.haptic();
+      await load();
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  // ── Customer detail sheet ─────────────────────────────────────
   async function openCustomer(customer) {
     setSelected(customer);
     setCreditLimit(customer.credit_limit?.toString() || '0');
@@ -85,85 +123,137 @@ export default function CreditApplications() {
 
   return (
     <div className="page">
+
       {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
-        <div className="header-title">Customers</div>
+        <div className="header-title">Customers & Registrations</div>
         <NotificationBell to="/cafe-home/notifications" />
       </div>
 
-      <div style={{ padding: '16px 16px 0' }}>
+      {/* Upper sliding tab nav */}
+      <div className="upper-tabs">
+        <button
+          className={`upper-tab ${tab === 'registrations' ? 'active' : ''}`}
+          onClick={() => setTab('registrations')}
+        >
+          📝 Registrations
+          {registrations.length > 0 && (
+            <span className="upper-tab-badge">{registrations.length}</span>
+          )}
+        </button>
+        <button
+          className={`upper-tab ${tab === 'customers' ? 'active' : ''}`}
+          onClick={() => setTab('customers')}
+        >
+          👥 Customers
+          <span className="upper-tab-badge">{customers.length}</span>
+        </button>
+      </div>
 
-        {/* Pending registrations banner — visible here so cafe owner
-            sees it no matter which tab they land on from the bell
-            notification. Tapping goes to the Registrations page
-            where the Approve / Reject buttons live. */}
-        {pendingRegs.length > 0 && (
-          <div
-            onClick={() => navigate('/cafe-home/registrations')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: '#fff3e0', border: '1.5px solid #f97316',
-              borderRadius: 12, padding: '12px 14px', marginBottom: 16,
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: 26 }}>📝</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#c2410c' }}>
-                {pendingRegs.length} registration request{pendingRegs.length > 1 ? 's' : ''} waiting
-              </div>
-              <div style={{ fontSize: 12, color: '#c2410c', marginTop: 2 }}>
-                Tap here to review, approve or reject
-              </div>
+      <div style={{ padding: '14px 16px 0' }}>
+
+        {/* ── REGISTRATIONS TAB ─────────────────────────────── */}
+        {tab === 'registrations' && (
+          registrations.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">📝</div>
+              <div className="empty-title">No pending registrations</div>
+              <div className="empty-desc">New registration requests will appear here automatically</div>
             </div>
-            <span style={{ color: '#c2410c', fontSize: 20, fontWeight: 700 }}>›</span>
-          </div>
-        )}
-
-        {customers.length === 0 ? (
-          <div className="empty">
-            <div className="empty-icon">👥</div>
-            <div className="empty-title">No registered customers yet</div>
-          </div>
-        ) : (
-          customers.map(customer => {
-            const balance = parseFloat(customer.balance || 0);
-            const isNegative = balance < 0;
-            return (
-              <div
-                key={customer.id}
-                className="card"
-                style={{ marginBottom: 10, padding: 14, cursor: 'pointer' }}
-                onClick={() => openCustomer(customer)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="avatar avatar-md" style={{ background: avatarColor(customer.name) }}>
-                    {getInitials(customer.name)}
+          ) : (
+            registrations.map(reg => (
+              <div key={reg.id} className="card" style={{ marginBottom: 12, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div className="avatar avatar-md" style={{ background: avatarColor(reg.name), flexShrink: 0 }}>
+                    {getInitials(reg.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || 'Unknown'}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
-                      <span style={{ color: isNegative ? 'var(--red)' : 'var(--green)', fontWeight: 700 }}>
-                        {isNegative ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
-                        {isNegative ? ' (owes)' : ' balance'}
-                      </span>
-                      <span style={{ color: 'var(--blue)' }}>Limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB</span>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{reg.name || 'Unknown'}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📞 {reg.phone}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                      Requested {new Date(reg.registered_at).toLocaleDateString()} at{' '}
+                      {new Date(reg.registered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
-                  <div style={{ color: 'var(--text3)', fontSize: 18 }}>›</div>
+                  <span style={{ background: '#fff3e0', color: '#f97316', borderRadius: 12, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>
+                    Pending
+                  </span>
+                </div>
+
+                {/* Approve / Reject buttons */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    className="btn btn-outline"
+                    style={{ flex: 1, fontSize: 14, padding: '11px' }}
+                    disabled={actionId === reg.id}
+                    onClick={() => handleReject(reg.id)}
+                  >
+                    ✕ Reject
+                  </button>
+                  <button
+                    className="btn btn-red"
+                    style={{ flex: 1, fontSize: 14, padding: '11px' }}
+                    disabled={actionId === reg.id}
+                    onClick={() => handleApprove(reg.id)}
+                  >
+                    {actionId === reg.id ? 'Processing...' : '✓ Approve'}
+                  </button>
                 </div>
               </div>
-            );
-          })
+            ))
+          )
+        )}
+
+        {/* ── CUSTOMERS TAB ─────────────────────────────────── */}
+        {tab === 'customers' && (
+          customers.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">👥</div>
+              <div className="empty-title">No approved customers yet</div>
+              <div className="empty-desc">Approved customers will appear here</div>
+            </div>
+          ) : (
+            customers.map(customer => {
+              const balance = parseFloat(customer.balance || 0);
+              const isNegative = balance < 0;
+              return (
+                <div
+                  key={customer.id}
+                  className="card"
+                  style={{ marginBottom: 10, padding: 14, cursor: 'pointer' }}
+                  onClick={() => openCustomer(customer)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="avatar avatar-md" style={{ background: avatarColor(customer.name) }}>
+                      {getInitials(customer.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || 'Unknown'}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
+                        <span style={{ color: isNegative ? 'var(--red)' : '#22c55e', fontWeight: 700 }}>
+                          {isNegative ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
+                          {isNegative ? ' (owes)' : ' balance'}
+                        </span>
+                        <span style={{ color: '#3b82f6' }}>
+                          Limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ color: 'var(--text3)', fontSize: 18 }}>›</div>
+                  </div>
+                </div>
+              );
+            })
+          )
         )}
       </div>
 
       <div style={{ height: 90 }} />
       <BottomNav variant="cafe-owner" active="credit" />
 
-      {/* ── Customer detail sheet ("upper bile") ──────────────── */}
+      {/* ── Customer detail sheet ──────────────────────────────── */}
       {selected && (
         <div className="overlay" onClick={closeSheet}>
           <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '92vh' }}>
@@ -179,20 +269,20 @@ export default function CreditApplications() {
               </div>
             </div>
 
-            {/* Single signed balance — positive or negative */}
+            {/* Signed balance card */}
             {(() => {
               const balance = parseFloat(selected.balance || 0);
-              const isNegative = balance < 0;
+              const isNeg = balance < 0;
               return (
                 <div style={{
-                  background: isNegative ? '#ffeaea' : '#e8f5e9',
+                  background: isNeg ? '#ffeaea' : '#e8f5e9',
                   borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 20,
                 }}>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>
-                    {isNegative ? 'Currently Owes' : 'Current Balance'}
+                    {isNeg ? 'Currently Owes' : 'Current Balance'}
                   </div>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: isNegative ? 'var(--red)' : '#22c55e' }}>
-                    {isNegative ? '−' : ''}{Math.abs(balance).toFixed(2)} ETB
+                  <div style={{ fontSize: 26, fontWeight: 900, color: isNeg ? 'var(--red)' : '#22c55e' }}>
+                    {isNeg ? '−' : ''}{Math.abs(balance).toFixed(2)} ETB
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
                     Credit limit: {parseFloat(selected.credit_limit || 0).toFixed(2)} ETB
@@ -201,12 +291,11 @@ export default function CreditApplications() {
               );
             })()}
 
-            {/* Set credit limit — directly here, in the customer's profile detail.
-                No application step: cafe owner can set/change this any time. */}
+            {/* Set credit limit */}
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Set Credit Limit</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-                How far negative this customer's balance can go (e.g. 500 ETB means they can owe up to 500 ETB before being blocked).
+                How far negative this customer's balance can go (e.g. 500 ETB means they can owe up to 500 ETB).
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
@@ -216,18 +305,25 @@ export default function CreditApplications() {
                   value={creditLimit}
                   onChange={e => setCreditLimit(e.target.value)}
                 />
-                <button className="btn btn-red" style={{ width: 'auto', padding: '13px 20px', flexShrink: 0 }} onClick={handleSetCreditLimit} disabled={savingLimit}>
+                <button
+                  className="btn btn-red"
+                  style={{ width: 'auto', padding: '13px 20px', flexShrink: 0 }}
+                  onClick={handleSetCreditLimit}
+                  disabled={savingLimit}
+                >
                   {savingLimit ? '...' : 'Set'}
                 </button>
               </div>
             </div>
 
-            {/* Deposit history with payer name */}
+            {/* Deposit history */}
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Deposits</div>
             {loadingDetail ? (
               <div className="spinner" />
             ) : !detail?.deposits?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>No deposits yet</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>
+                No deposits yet
+              </div>
             ) : (
               <div style={{ marginBottom: 20 }}>
                 {detail.deposits.map(d => (
@@ -243,10 +339,12 @@ export default function CreditApplications() {
               </div>
             )}
 
-            {/* Order / payment history with payer name */}
+            {/* Order history */}
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Order History (Last 30 Days)</div>
             {loadingDetail ? null : !detail?.orders?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>No recent orders</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>
+                No recent orders
+              </div>
             ) : (
               detail.orders.map(order => (
                 <div key={order.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
@@ -263,6 +361,7 @@ export default function CreditApplications() {
                 </div>
               ))
             )}
+
           </div>
         </div>
       )}
