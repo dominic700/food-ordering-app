@@ -1,19 +1,34 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
+import { getRegistrations } from '../api/cafe.js';
 import telegram from '../telegram.js';
 
-// variant:
-//   'customer-global' -> Home | Orders | Favorites | Profile
-//                         (Orders/Profile jump into the last-visited cafe)
-//   'customer-cafe'   -> Menu | Orders | Cart(big red) | Deposits | Profile
-//                         (requires cafeId)
-//   'cafe-owner'      -> Dashboard | Orders | Menu | Customers | Registrations
-//
-// active: which tab is highlighted (string key, see below)
 export default function BottomNav({ variant = 'customer-global', cafeId, active }) {
-  const navigate = useNavigate();
-  const cartCount = useStore(s => s.cartCount());
-  const currentCafe = useStore(s => s.currentCafe);
+  const navigate     = useNavigate();
+  const cartCount    = useStore(s => s.cartCount());
+  const currentCafe  = useStore(s => s.currentCafe);
+
+  // Live pending-registration count for the cafe-owner nav badge
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (variant !== 'cafe-owner') return;
+    let mounted = true;
+
+    async function fetchPending() {
+      try {
+        const regs = await getRegistrations();
+        if (mounted) setPendingCount(Array.isArray(regs) ? regs.length : 0);
+      } catch {
+        // silent — badge just won't show
+      }
+    }
+
+    fetchPending();
+    const interval = setInterval(fetchPending, 20000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [variant]);
 
   function go(path) {
     telegram.haptic();
@@ -49,7 +64,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     );
   }
 
-  // ── Cafe owner dashboard ─────────────────────────────────────
+  // ── Cafe owner ───────────────────────────────────────────────
   if (variant === 'cafe-owner') {
     return (
       <div className="bottom-nav">
@@ -57,17 +72,35 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
           <span className="nav-icon" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>🏠</span>
           <span className="nav-label" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>Home</span>
         </button>
-        <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go('/cafe-home/menu')}>
-          <span className="nav-icon" style={active === 'menu' ? { color: 'var(--red)' } : {}}>▦</span>
-          <span className="nav-label" style={active === 'menu' ? { color: 'var(--red)' } : {}}>Menu</span>
-        </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go('/cafe-home/orders')}>
           <span className="nav-icon" style={active === 'orders' ? { color: 'var(--red)' } : {}}>📋</span>
           <span className="nav-label" style={active === 'orders' ? { color: 'var(--red)' } : {}}>Orders</span>
         </button>
-        <button className={`nav-item ${active === 'credit' ? 'active' : ''}`} onClick={() => go('/cafe-home/credit')}>
-          <span className="nav-icon" style={active === 'credit' ? { color: 'var(--red)' } : {}}>✨</span>
-          <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>Credit</span>
+        <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go('/cafe-home/menu')}>
+          <span className="nav-icon" style={active === 'menu' ? { color: 'var(--red)' } : {}}>▦</span>
+          <span className="nav-label" style={active === 'menu' ? { color: 'var(--red)' } : {}}>Menu</span>
+        </button>
+        {/* Customers tab — opens CreditApplications.jsx which has
+            Registrations + Customers as upper tabs inside it.
+            Shows a live red badge when there are pending registrations. */}
+        <button
+          className={`nav-item ${active === 'credit' ? 'active' : ''}`}
+          onClick={() => go('/cafe-home/credit')}
+          style={{ position: 'relative' }}
+        >
+          <span className="nav-icon" style={active === 'credit' ? { color: 'var(--red)' } : {}}>👥</span>
+          <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>Customers</span>
+          {pendingCount > 0 && (
+            <span style={{
+              position: 'absolute', top: 4, right: 8,
+              background: 'var(--red)', color: '#fff',
+              borderRadius: '50%', fontSize: 10, fontWeight: 800,
+              width: 16, height: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {pendingCount > 9 ? '9+' : pendingCount}
+            </span>
+          )}
         </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go('/cafe-home/profile')}>
           <span className="nav-icon" style={active === 'profile' ? { color: 'var(--red)' } : {}}>👤</span>
@@ -77,7 +110,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     );
   }
 
-  // ── Customer: global (before entering a cafe) ────────────────
+  // ── Customer: global ─────────────────────────────────────────
   return (
     <div className="bottom-nav">
       <button className={`nav-item ${active === 'home' ? 'active' : ''}`} onClick={() => go('/')}>

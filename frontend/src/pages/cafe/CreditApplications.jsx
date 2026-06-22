@@ -19,15 +19,13 @@ function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.l
 export default function CreditApplications() {
   const navigate = useNavigate();
 
-  // upper tab: 'registrations' | 'customers'
-  const [tab, setTab] = useState('registrations');
-
+  const [tab, setTab]                     = useState('registrations');
   const [registrations, setRegistrations] = useState([]);
   const [customers, setCustomers]         = useState([]);
   const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null); // ← show errors visibly
   const [actionId, setActionId]           = useState(null);
 
-  // customer detail sheet
   const [selected, setSelected]           = useState(null);
   const [detail, setDetail]               = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -35,15 +33,30 @@ export default function CreditApplications() {
   const [savingLimit, setSavingLimit]     = useState(false);
 
   const load = useCallback(async () => {
+    setError(null);
     try {
-      const [regs, custs] = await Promise.all([
-        getRegistrations(),
-        getCustomers(),
-      ]);
-      setRegistrations(regs);
-      setCustomers(custs);
-    } catch (err) {
-      console.error(err);
+      // Call each separately so we can see which one fails
+      let regs = [];
+      let custs = [];
+
+      try {
+        regs = await getRegistrations();
+        console.log('registrations:', regs);
+      } catch (err) {
+        console.error('getRegistrations failed:', err.message);
+        setError(`Registrations error: ${err.message}`);
+      }
+
+      try {
+        custs = await getCustomers();
+        console.log('customers:', custs);
+      } catch (err) {
+        console.error('getCustomers failed:', err.message);
+        setError(prev => `${prev || ''} | Customers error: ${err.message}`);
+      }
+
+      setRegistrations(Array.isArray(regs) ? regs : []);
+      setCustomers(Array.isArray(custs) ? custs : []);
     } finally {
       setLoading(false);
     }
@@ -51,12 +64,10 @@ export default function CreditApplications() {
 
   useEffect(() => {
     load();
-    // Poll every 20s so new registrations appear automatically
     const interval = setInterval(load, 20000);
     return () => clearInterval(interval);
   }, [load]);
 
-  // ── Registration actions ──────────────────────────────────────
   async function handleApprove(pcaId) {
     setActionId(pcaId);
     try {
@@ -64,7 +75,7 @@ export default function CreditApplications() {
       telegram.haptic('success');
       await load();
     } catch (err) {
-      telegram.alert(err.message);
+      telegram.alert(`Approve failed: ${err.message}`);
     } finally {
       setActionId(null);
     }
@@ -77,13 +88,12 @@ export default function CreditApplications() {
       telegram.haptic();
       await load();
     } catch (err) {
-      telegram.alert(err.message);
+      telegram.alert(`Reject failed: ${err.message}`);
     } finally {
       setActionId(null);
     }
   }
 
-  // ── Customer detail sheet ─────────────────────────────────────
   async function openCustomer(customer) {
     setSelected(customer);
     setCreditLimit(customer.credit_limit?.toString() || '0');
@@ -92,16 +102,13 @@ export default function CreditApplications() {
       const d = await getCustomerDetail(customer.id);
       setDetail(d);
     } catch (err) {
-      console.error(err);
+      console.error('getCustomerDetail failed:', err);
     } finally {
       setLoadingDetail(false);
     }
   }
 
-  function closeSheet() {
-    setSelected(null);
-    setDetail(null);
-  }
+  function closeSheet() { setSelected(null); setDetail(null); }
 
   async function handleSetCreditLimit() {
     const limit = parseFloat(creditLimit);
@@ -124,14 +131,13 @@ export default function CreditApplications() {
   return (
     <div className="page">
 
-      {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
         <div className="header-title">Customers & Registrations</div>
         <NotificationBell to="/cafe-home/notifications" />
       </div>
 
-      {/* Upper sliding tab nav */}
+      {/* Upper tabs */}
       <div className="upper-tabs">
         <button
           className={`upper-tab ${tab === 'registrations' ? 'active' : ''}`}
@@ -147,9 +153,23 @@ export default function CreditApplications() {
           onClick={() => setTab('customers')}
         >
           👥 Customers
-          <span className="upper-tab-badge">{customers.length}</span>
+          {customers.length > 0 && (
+            <span className="upper-tab-badge">{customers.length}</span>
+          )}
         </button>
       </div>
+
+      {/* Error banner — visible in production so you can see what failed */}
+      {error && (
+        <div style={{
+          margin: '12px 16px', padding: '10px 14px',
+          background: '#ffeaea', border: '1px solid var(--red)',
+          borderRadius: 10, fontSize: 12, color: 'var(--red)',
+          wordBreak: 'break-all',
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
 
       <div style={{ padding: '14px 16px 0' }}>
 
@@ -159,7 +179,17 @@ export default function CreditApplications() {
             <div className="empty">
               <div className="empty-icon">📝</div>
               <div className="empty-title">No pending registrations</div>
-              <div className="empty-desc">New registration requests will appear here automatically</div>
+              <div className="empty-desc">
+                New registration requests will appear here automatically.
+                {'\n'}If you just received a notification, pull to refresh.
+              </div>
+              <button
+                className="btn btn-red"
+                style={{ marginTop: 16, maxWidth: 200 }}
+                onClick={load}
+              >
+                ↻ Refresh now
+              </button>
             </div>
           ) : (
             registrations.map(reg => (
@@ -170,9 +200,9 @@ export default function CreditApplications() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{reg.name || 'Unknown'}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📞 {reg.phone}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📞 {reg.phone || 'No phone'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      Requested {new Date(reg.registered_at).toLocaleDateString()} at{' '}
+                      {new Date(reg.registered_at).toLocaleDateString()} {' '}
                       {new Date(reg.registered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
@@ -181,7 +211,6 @@ export default function CreditApplications() {
                   </span>
                 </div>
 
-                {/* Approve / Reject buttons */}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     className="btn btn-outline"
@@ -211,12 +240,12 @@ export default function CreditApplications() {
             <div className="empty">
               <div className="empty-icon">👥</div>
               <div className="empty-title">No approved customers yet</div>
-              <div className="empty-desc">Approved customers will appear here</div>
+              <div className="empty-desc">Customers appear here after you approve their registration</div>
             </div>
           ) : (
             customers.map(customer => {
               const balance = parseFloat(customer.balance || 0);
-              const isNegative = balance < 0;
+              const isNeg = balance < 0;
               return (
                 <div
                   key={customer.id}
@@ -232,9 +261,9 @@ export default function CreditApplications() {
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || 'Unknown'}</div>
                       <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
                       <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
-                        <span style={{ color: isNegative ? 'var(--red)' : '#22c55e', fontWeight: 700 }}>
-                          {isNegative ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
-                          {isNegative ? ' (owes)' : ' balance'}
+                        <span style={{ color: isNeg ? 'var(--red)' : '#22c55e', fontWeight: 700 }}>
+                          {isNeg ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
+                          {isNeg ? ' (owes)' : ' balance'}
                         </span>
                         <span style={{ color: '#3b82f6' }}>
                           Limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB
@@ -253,7 +282,7 @@ export default function CreditApplications() {
       <div style={{ height: 90 }} />
       <BottomNav variant="cafe-owner" active="credit" />
 
-      {/* ── Customer detail sheet ──────────────────────────────── */}
+      {/* ── Customer detail sheet ──────────────────────────── */}
       {selected && (
         <div className="overlay" onClick={closeSheet}>
           <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '92vh' }}>
@@ -269,15 +298,11 @@ export default function CreditApplications() {
               </div>
             </div>
 
-            {/* Signed balance card */}
             {(() => {
               const balance = parseFloat(selected.balance || 0);
               const isNeg = balance < 0;
               return (
-                <div style={{
-                  background: isNeg ? '#ffeaea' : '#e8f5e9',
-                  borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 20,
-                }}>
+                <div style={{ background: isNeg ? '#ffeaea' : '#e8f5e9', borderRadius: 12, padding: 16, textAlign: 'center', marginBottom: 20 }}>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>
                     {isNeg ? 'Currently Owes' : 'Current Balance'}
                   </div>
@@ -291,11 +316,10 @@ export default function CreditApplications() {
               );
             })()}
 
-            {/* Set credit limit */}
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Set Credit Limit</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-                How far negative this customer's balance can go (e.g. 500 ETB means they can owe up to 500 ETB).
+                How far negative this customer's balance can go.
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
@@ -316,52 +340,37 @@ export default function CreditApplications() {
               </div>
             </div>
 
-            {/* Deposit history */}
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Deposits</div>
-            {loadingDetail ? (
-              <div className="spinner" />
-            ) : !detail?.deposits?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>
-                No deposits yet
+            {loadingDetail ? <div className="spinner" /> : !detail?.deposits?.length ? (
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>No deposits yet</div>
+            ) : detail.deposits.map(d => (
+              <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>+{parseFloat(d.amount).toFixed(2)} ETB</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{d.payment_method?.replace('_', ' ')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(d.created_at).toLocaleDateString()}</div>
+                </div>
+                <StatusBadge status={d.status} />
               </div>
-            ) : (
-              <div style={{ marginBottom: 20 }}>
-                {detail.deposits.map(d => (
-                  <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>+{parseFloat(d.amount).toFixed(2)} ETB</div>
-                      <div style={{ fontSize: 12, color: 'var(--text2)' }}>by {d.payer_name} · {d.payment_method.replace('_', ' ')}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(d.created_at).toLocaleDateString()}</div>
-                    </div>
-                    <StatusBadge status={d.status} />
-                  </div>
-                ))}
-              </div>
-            )}
+            ))}
 
-            {/* Order history */}
             <div style={{ fontWeight: 700, marginBottom: 10 }}>Order History (Last 30 Days)</div>
             {loadingDetail ? null : !detail?.orders?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>
-                No recent orders
-              </div>
-            ) : (
-              detail.orders.map(order => (
-                <div key={order.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>#{order.id?.slice(0, 6)} · {order.payer_name}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</span>
-                  </div>
-                  {order.items?.map((item, i) => (
-                    <div key={i} style={{ fontSize: 12, color: 'var(--text2)' }}>{item.quantity}× {item.name}</div>
-                  ))}
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-                    {order.payment_method} · {new Date(order.created_at).toLocaleDateString()}
-                  </div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>No recent orders</div>
+            ) : detail.orders.map(order => (
+              <div key={order.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>#{order.id?.slice(0, 6)}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</span>
                 </div>
-              ))
-            )}
-
+                {order.items?.map((item, i) => (
+                  <div key={i} style={{ fontSize: 12, color: 'var(--text2)' }}>{item.quantity}× {item.name}</div>
+                ))}
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                  {order.payment_method} · {new Date(order.created_at).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
