@@ -68,7 +68,7 @@ export default function AdminDashboard() {
         <button className="header-icon">☰</button>
         <div className="header-title">Admin Terminal</div>
         <button className="header-icon" style={{ position: 'relative' }}>
-          
+          🔔
           <span className="header-badge">3</span>
         </button>
       </div>
