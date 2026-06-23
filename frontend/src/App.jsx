@@ -13,7 +13,7 @@ import Orders      from './pages/customer/Orders.jsx';
 import Deposit     from './pages/customer/Deposit.jsx';
 import Profile     from './pages/customer/Profile.jsx';
 import Favorites   from './pages/customer/Favorites.jsx';
-import CreditApply from './pages/customer/CreditApply.jsx';
+
 
 // ── Cafe owner pages ──────────────────────────────────────────
 import Dashboard          from './pages/cafe/Dashboard.jsx';
