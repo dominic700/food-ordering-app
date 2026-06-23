@@ -1,9 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Component } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import telegram from './telegram.js';
 import { initApp } from './api/auth.js';
 import useStore from './store/useStore.js';
 import Spinner from './components/Spinner.jsx';
+
+// ── Global error boundary ─────────────────────────────────────
+// Shows the actual crash error on screen instead of a white page.
+// Remove this once the app is stable.
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 24, fontFamily: 'monospace', fontSize: 13 }}>
+          <div style={{ color: 'red', fontWeight: 700, marginBottom: 8 }}>
+            ⚠️ App crashed — show this to your developer:
+          </div>
+          <div style={{ background: '#f5f5f5', padding: 12, borderRadius: 8, wordBreak: 'break-all', lineHeight: 1.6 }}>
+            {this.state.error.toString()}
+            {this.state.error.stack && (
+              <pre style={{ marginTop: 8, fontSize: 11, overflow: 'auto' }}>
+                {this.state.error.stack}
+              </pre>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Customer pages ────────────────────────────────────────────
 import Home        from './pages/customer/Home.jsx';
@@ -13,7 +41,6 @@ import Orders      from './pages/customer/Orders.jsx';
 import Deposit     from './pages/customer/Deposit.jsx';
 import Profile     from './pages/customer/Profile.jsx';
 import Favorites   from './pages/customer/Favorites.jsx';
-
 
 // ── Cafe owner pages ──────────────────────────────────────────
 import Dashboard          from './pages/cafe/Dashboard.jsx';
@@ -46,7 +73,6 @@ function CustomerApp() {
       <Route path="/cafe/:cafeId/cart"    element={<Cart />} />
       <Route path="/cafe/:cafeId/deposit" element={<Deposit />} />
       <Route path="/cafe/:cafeId/profile" element={<Profile />} />
-      <Route path="/cafe/:cafeId/credit"  element={<CreditApply />} />
       <Route path="*"                     element={<Navigate to="/" />} />
     </Routes>
   );
@@ -128,8 +154,10 @@ function AppEntry() {
 // ── Root ──────────────────────────────────────────────────────
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppEntry />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppEntry />
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
