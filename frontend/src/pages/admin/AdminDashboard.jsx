@@ -192,7 +192,7 @@ export default function AdminDashboard() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 90 }} onClick={() => setMenuOpen(null)} />
       )}
 
-      <AdminBottomNav active="cafes" totalOrdersToday={totalOrders} />
+      <AdminBottomNav active="cafes" totalOrdersToday={totalOrdersToday} />
     </div>
   );
 }
