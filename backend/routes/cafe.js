@@ -20,6 +20,8 @@ router.get('/dashboard', async (req, res) => {
         (SELECT COUNT(*) FROM orders WHERE cafe_id = $1 AND status = 'pending')               AS pending_orders,
         (SELECT COUNT(*) FROM orders WHERE cafe_id = $1 AND status = 'approved'
           AND created_at >= NOW() - INTERVAL '30 days')                                        AS approved_orders_30d,
+        (SELECT COUNT(*) FROM orders WHERE cafe_id = $1
+          AND created_at::date = CURRENT_DATE)                                                 AS orders_today,
         (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'approved')   AS total_customers,
         (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'pending')    AS pending_registrations,
         (SELECT COUNT(*) FROM per_cafe_accounts WHERE cafe_id = $1 AND status = 'approved'

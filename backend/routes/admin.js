@@ -39,12 +39,13 @@ router.get('/cafes', async (req, res) => {
         co.phone       AS owner_phone,
         co.telegram_id AS owner_telegram_id,
         COUNT(DISTINCT pca.id) FILTER (WHERE pca.status = 'approved') AS customer_count,
-        COUNT(DISTINCT o.id)                                           AS total_orders,
+        COUNT(DISTINCT o.id)   AS total_orders,
+        COUNT(DISTINCT o.id)   FILTER (WHERE o.created_at::date = CURRENT_DATE) AS orders_today,
         COALESCE(SUM(o.service_fee) FILTER (WHERE o.status = 'approved'), 0) AS total_fees
       FROM cafes c
-      LEFT JOIN cafe_owners co       ON co.cafe_id = c.id
+      LEFT JOIN cafe_owners co        ON co.cafe_id = c.id
       LEFT JOIN per_cafe_accounts pca ON pca.cafe_id = c.id
-      LEFT JOIN orders o             ON o.cafe_id = c.id
+      LEFT JOIN orders o              ON o.cafe_id = c.id
       GROUP BY c.id, co.name, co.phone, co.telegram_id
       ORDER BY c.created_at DESC
     `);

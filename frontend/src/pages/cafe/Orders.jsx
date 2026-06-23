@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPendingOrders, getOrderHistory, approveOrder, cancelOrder } from '../../api/orders.js';
 import BottomNav from '../../components/BottomNav.jsx';
+import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
@@ -102,27 +103,37 @@ export default function Orders() {
       <div key={order.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
         {/* Order header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>#{shortId}</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>#{shortId}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+              {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items · {order.payment_method}
+            </div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 13, color: 'var(--text2)' }}>{time}</span>
             <span style={{ background: badge.bg, color: badge.color, borderRadius: 6, fontSize: 11, fontWeight: 800, padding: '3px 10px' }}>{badge.label}</span>
           </div>
         </div>
 
-        {/* Items */}
+        {/* Items — each with name, quantity, price */}
         {order.items?.map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4, color: 'var(--text)' }}>
             <span>{item.name}</span>
             <div style={{ display: 'flex', gap: 24 }}>
-              <span style={{ color: 'var(--text2)' }}>x{item.quantity}</span>
+              <span style={{ color: 'var(--text2)', fontWeight: 700 }}>×{item.quantity}</span>
               <span>{parseFloat(item.item_total).toFixed(0)} ETB</span>
             </div>
           </div>
         ))}
 
-        {/* Total */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-          <span style={{ fontWeight: 600 }}>Total</span>
+        {/* Total + item count summary */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontWeight: 600 }}>Total</span>
+            <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 8 }}>
+              ({order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items)
+            </span>
+          </div>
           <span style={{ fontWeight: 800, color: 'var(--red)', fontSize: 16 }}>{parseFloat(order.total).toFixed(0)} ETB</span>
         </div>
 
@@ -192,10 +203,7 @@ export default function Orders() {
       <div className="header">
         <button className="header-icon">☰</button>
         <div className="header-title">Orders</div>
-        <button className="header-icon" style={{ position: 'relative' }}>
-          🔔
-          <span className="header-badge">{pending.length}</span>
-        </button>
+        <NotificationBell to="/cafe-home/notifications" />
       </div>
 
       {/* Status tabs */}

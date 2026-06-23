@@ -1,8 +1,8 @@
-import React from 'react';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCafes, toggleCafe } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
+import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
@@ -50,13 +50,15 @@ export default function AdminDashboard() {
   const totalCafes    = cafes.length;
   const activeCafes   = cafes.filter(c => c.is_active).length;
   const inactiveCafes = cafes.filter(c => !c.is_active).length;
-  const totalOrders   = cafes.reduce((s, c) => s + parseInt(c.total_orders || 0), 0);
+  const totalOrdersToday = cafes.reduce((s, c) => s + parseInt(c.orders_today || 0), 0);
+  const totalOrdersAll   = cafes.reduce((s, c) => s + parseInt(c.total_orders || 0), 0);
 
   const STATS = [
     { icon: '🏪', label: 'Total Cafes',       value: totalCafes,    sub: 'Active'    },
     { icon: '🛍️', label: 'Active Cafes',      value: activeCafes,   sub: 'Online'    },
     { icon: '⏸️', label: 'Inactive Cafes',    value: inactiveCafes, sub: 'Offline'   },
-    { icon: '📋', label: 'Total Orders Today', value: totalOrders,   sub: 'All Cafes' },
+    { icon: '📋', label: "Today's Orders", value: totalOrdersToday, sub: 'All Cafes' },
+    { icon: '📦', label: 'Total Orders',   value: totalOrdersAll,   sub: 'All Time'  },
   ];
 
   if (loading) return <Spinner fullPage label="Loading admin dashboard..." />;
@@ -67,10 +69,7 @@ export default function AdminDashboard() {
       <div className="header">
         <button className="header-icon">☰</button>
         <div className="header-title">Admin Terminal</div>
-        <button className="header-icon" style={{ position: 'relative' }}>
-          🔔
-          <span className="header-badge">3</span>
-        </button>
+        <NotificationBell to="/admin/notifications" />
       </div>
 
       {/* White rounded main container */}
@@ -149,8 +148,9 @@ export default function AdminDashboard() {
 
               {/* Orders count */}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today's Orders</div>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{cafe.total_orders || 0}</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today</div>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>{cafe.orders_today || 0}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>orders</div>
               </div>
 
               {/* Three dot menu */}

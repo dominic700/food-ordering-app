@@ -4,6 +4,7 @@ import useStore from '../../store/useStore.js';
 import { getDashboard } from '../../api/cafe.js';
 import { getPendingOrders, getOrderHistory } from '../../api/orders.js';
 import BottomNav from '../../components/BottomNav.jsx';
+import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 
 // Greeting based on time of day
@@ -73,14 +74,11 @@ export default function Dashboard() {
     <div className="page">
       {/* Header */}
       <div className="header">
-        <button className="header-icon">☰</button>
+        <button className="header-icon" style={{ position: 'relative' }}>☰</button>
         <div style={{ flex: 1, color: '#fff', textAlign: 'center', fontWeight: 700, fontSize: 16 }}>
           {cafeName} ▾
         </div>
-        <button className="header-icon" style={{ position: 'relative' }}>
-          🔔
-          <span className="header-badge">{parseInt(stats?.pending_orders || 0) + parseInt(stats?.pending_registrations || 0)}</span>
-        </button>
+        <NotificationBell to="/cafe-home/notifications" />
       </div>
 
       {/* Greeting */}
@@ -99,7 +97,7 @@ export default function Dashboard() {
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ffeaea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🛍️</div>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today's Orders</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--red)' }}>{stats?.approved_orders_30d || 0}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--red)' }}>{stats?.orders_today || 0}</div>
               </div>
             </div>
           </div>
@@ -116,7 +114,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✅</div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Completed Orders</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Completed (30d)</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#22c55e' }}>{stats?.approved_orders_30d || 0}</div>
               </div>
             </div>
@@ -126,11 +124,32 @@ export default function Dashboard() {
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ffeaea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💰</div>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today's Revenue</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>{parseFloat(stats?.revenue_30d || 0).toFixed(0)} ETB</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>{parseFloat(stats?.revenue_today || 0).toFixed(0)} ETB</div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Pending registrations quick-access banner */}
+        {parseInt(stats?.pending_registrations || 0) > 0 && (
+          <div
+            onClick={() => navigate('/cafe-home/registrations')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: '#fff3e0', border: '1.5px solid #f97316',
+              borderRadius: 12, padding: '12px 14px', marginBottom: 20, cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 22 }}>📝</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: '#c2410c' }}>
+                {stats.pending_registrations} new registration{stats.pending_registrations > 1 ? 's' : ''} waiting
+              </div>
+              <div style={{ fontSize: 12, color: '#c2410c' }}>Tap to review and approve</div>
+            </div>
+            <span style={{ color: '#c2410c', fontSize: 18 }}>›</span>
+          </div>
+        )}
 
         {/* Recent Orders */}
         <div className="section-header" style={{ marginBottom: 12 }}>
@@ -147,16 +166,26 @@ export default function Dashboard() {
               return (
                 <div key={order.id} style={{ padding: '12px 14px', borderBottom: i < recentOrders.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ fontWeight: 700 }}>#{order.id?.slice(0, 6)}</div>
+                    <div style={{ fontWeight: 700 }}>
+                      #{order.id?.slice(0, 6)}
+                      <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text2)', marginLeft: 8 }}>
+                        {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items
+                      </span>
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--text2)' }}>
                       {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   {order.items?.slice(0, 2).map((item, j) => (
                     <div key={j} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text2)', marginBottom: 2 }}>
-                      <span>{item.name}</span><span>x{item.quantity}</span>
+                      <span>{item.name}</span><span>×{item.quantity}</span>
                     </div>
                   ))}
+                  {order.items?.length > 2 && (
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 2 }}>
+                      +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                     <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(2)} ETB</div>
                     <span style={{ background: s.bg, color: s.color, borderRadius: 12, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>{s.label}</span>
