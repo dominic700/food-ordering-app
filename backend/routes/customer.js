@@ -160,7 +160,116 @@ router.post('/account/:cafeId/register', async (req, res) => {
 });
 
 
-// ── GET /api/customer/account/:cafeId/history ────────────────
+// ── POST /api/customer/account/:cafeId/transfer ──────────────
+// Send wallet balance (or credit) from one customer to another
+// at the same cafe. Both must be approved at this cafe.
+// Sender's balance can go negative down to -credit_limit
+// (same rule as ordering with wallet).
+router.post('/account/:cafeId/transfer', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { telegram_id } = req.telegramUser;
+    const { cafeId }      = req.params;
+    const { to_phone, amount } = req.body;
+
+    if (!to_phone || !amount || parseFloat(amount) <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'to_phone and a positive amount are required' });
+    }
+
+    const transferAmount = parseFloat(parseFloat(amount).toFixed(2));
+
+    // ── Resolve sender ────────────────────────────────────────
+    const senderResult = await client.query(`
+      SELECT pca.id, pca.balance, pca.credit_limit, ga.name AS sender_name
+      FROM per_cafe_accounts pca
+      JOIN global_accounts ga ON pca.global_account_id = ga.id
+      WHERE ga.telegram_id = $1 AND pca.cafe_id = $2 AND pca.status = 'approved'
+    `, [telegram_id, cafeId]);
+
+    if (senderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You need an approved account at this cafe to send money.' });
+    }
+    const sender = senderResult.rows[0];
+
+    // Check sender can afford it (balance can go negative down to -credit_limit)
+    const balanceAfter = parseFloat(sender.balance) - transferAmount;
+    if (balanceAfter < -parseFloat(sender.credit_limit)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: `Insufficient balance and credit. You can send up to ${(parseFloat(sender.balance) + parseFloat(sender.credit_limit)).toFixed(2)} ETB.`,
+        balance: parseFloat(sender.balance),
+        credit_limit: parseFloat(sender.credit_limit),
+      });
+    }
+
+    // ── Resolve receiver by phone ─────────────────────────────
+    const receiverResult = await client.query(`
+      SELECT pca.id, pca.balance, ga.name AS receiver_name, ga.telegram_id AS receiver_telegram_id
+      FROM per_cafe_accounts pca
+      JOIN global_accounts ga ON pca.global_account_id = ga.id
+      WHERE ga.phone = $1 AND pca.cafe_id = $2 AND pca.status = 'approved'
+    `, [to_phone, cafeId]);
+
+    if (receiverResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: `No approved account found for phone ${to_phone} at this cafe. Both sender and receiver must be registered and approved here.`
+      });
+    }
+    const receiver = receiverResult.rows[0];
+
+    // Can't send to yourself
+    if (sender.id === receiver.id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'You cannot send money to yourself.' });
+    }
+
+    // ── Execute transfer ──────────────────────────────────────
+    await client.query(
+      'UPDATE per_cafe_accounts SET balance = balance - $1 WHERE id = $2',
+      [transferAmount, sender.id]
+    );
+    await client.query(
+      'UPDATE per_cafe_accounts SET balance = balance + $1 WHERE id = $2',
+      [transferAmount, receiver.id]
+    );
+
+    await client.query('COMMIT');
+
+    // Notify both parties via Telegram push + in-app bell
+    sendTelegramMessage(
+      receiver.receiver_telegram_id,
+      `💸 <b>Money Received!</b>\n\n` +
+      `<b>${sender.sender_name}</b> sent you <b>${transferAmount.toFixed(2)} ETB</b> at this cafe.\n` +
+      `Your new balance: <b>${(parseFloat(receiver.balance) + transferAmount).toFixed(2)} ETB</b>`
+    );
+
+    createNotification({
+      telegramId: receiver.receiver_telegram_id,
+      cafeId,
+      type:  'wallet_received',
+      title: `Received ${transferAmount.toFixed(2)} ETB from ${sender.sender_name}`,
+      body:  `Your balance has been updated.`,
+    });
+
+    res.json({
+      message:        'Transfer successful',
+      amount:         transferAmount,
+      to:             receiver.receiver_name,
+      sender_balance: balanceAfter,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Transfer error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
 router.get('/account/:cafeId/history', async (req, res) => {
   try {
     const { telegram_id } = req.telegramUser;
