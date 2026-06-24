@@ -146,11 +146,13 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Orders count */}
+              {/* Item count — total approved items (for fee calculation) */}
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today</div>
-                <div style={{ fontSize: 26, fontWeight: 900 }}>{cafe.orders_today || 0}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>orders</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Items</div>
+                <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--red)' }}>
+                  {parseInt(cafe.total_items_all_time || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>approved</div>
               </div>
 
               {/* Three dot menu */}

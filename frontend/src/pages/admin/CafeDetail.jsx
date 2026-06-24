@@ -1,21 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCafeDetail, toggleCafe, updateCafe } from '../../api/admin.js';
+import { getCafeDetail, toggleCafe, updateCafe, getFeeStats, restartFeeWeek } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
+import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import useStore from '../../store/useStore.js';
 import telegram from '../../telegram.js';
 
 export default function CafeDetail() {
   const { cafeId } = useParams();
-  const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [editingFee, setEditingFee] = useState(false);
-  const [newFee, setNewFee] = useState('');
-  const [saving, setSaving] = useState(false);
+  const navigate   = useNavigate();
+  const account    = useStore(s => s.account);
 
-  async function load() {
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [editingFee, setEditingFee] = useState(false);
+  const [newFee, setNewFee]     = useState('');
+  const [saving, setSaving]     = useState(false);
+
+  const [feeStats, setFeeStats]         = useState(null);
+  const [loadingFee, setLoadingFee]     = useState(true);
+  const [restarting, setRestarting]     = useState(false);
+
+  const load = useCallback(async () => {
     try {
       const d = await getCafeDetail(cafeId);
       setData(d);
@@ -25,9 +33,23 @@ export default function CafeDetail() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [cafeId]);
 
-  useEffect(() => { load(); }, [cafeId]);
+  const loadFeeStats = useCallback(async () => {
+    try {
+      const f = await getFeeStats(cafeId);
+      setFeeStats(f);
+    } catch (err) {
+      console.error('fee stats error:', err.message);
+    } finally {
+      setLoadingFee(false);
+    }
+  }, [cafeId]);
+
+  useEffect(() => {
+    load();
+    loadFeeStats();
+  }, [load, loadFeeStats]);
 
   async function handleToggle() {
     try {
@@ -39,7 +61,7 @@ export default function CafeDetail() {
     }
   }
 
-  async function handleSaveFee() {
+  if (loading) return <Spinner fullPage label="Loading cafe..." />;
     const fee = parseFloat(newFee);
     if (isNaN(fee) || fee < 0) return telegram.alert('Enter a valid service fee.');
     setSaving(true);
@@ -55,7 +77,19 @@ export default function CafeDetail() {
     }
   }
 
-  if (loading) return <Spinner fullPage label="Loading cafe..." />;
+  async function handleRestart() {
+    setRestarting(true);
+    try {
+      await restartFeeWeek(cafeId, account?.name || 'admin');
+      telegram.haptic('success');
+      await loadFeeStats();
+      telegram.alert('✅ Week restarted! Item count and fee have been saved to history and reset to 0.');
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setRestarting(false);
+    }
+  }
   if (!data) return <div className="empty"><div className="empty-title">Cafe not found</div></div>;
 
   const { cafe, orders, stats } = data;
@@ -65,7 +99,7 @@ export default function CafeDetail() {
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/admin')}>‹</button>
         <div className="header-title">{cafe.name}</div>
-        <button className="header-icon">🔔</button>
+        <NotificationBell to="/admin/notifications" />
       </div>
 
       <div style={{ padding: '16px 16px 100px' }}>
@@ -126,6 +160,91 @@ export default function CafeDetail() {
             </div>
           ))}
         </div>
+
+        {/* ── Weekly Fee Collection ─────────────────────────── */}
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📦 This Week's Items & Fee</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                Since {feeStats?.period_start
+                  ? new Date(feeStats.period_start).toLocaleDateString()
+                  : '—'}
+              </div>
+            </div>
+            <button
+              className="btn btn-red"
+              style={{ width: 'auto', padding: '10px 16px', fontSize: 13 }}
+              onClick={handleRestart}
+              disabled={restarting}
+            >
+              {restarting ? '...' : '↺ Restart Week'}
+            </button>
+          </div>
+
+          {loadingFee ? (
+            <div className="spinner" />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ background: '#ffeaea', borderRadius: 10, padding: 14, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Items This Week</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--red)' }}>
+                  {parseInt(feeStats?.current_period?.total_items || 0).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>approved items</div>
+              </div>
+              <div style={{ background: '#fff3e0', borderRadius: 10, padding: 14, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Fee Owed</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#f97316' }}>
+                  {parseFloat(feeStats?.current_period?.total_fee || 0).toFixed(2)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>ETB</div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, lineHeight: 1.5 }}>
+            Press <strong>Restart Week</strong> after collecting the fee. This saves the current count to history and resets to 0 for the next week.
+          </div>
+        </div>
+
+        {/* ── Collection History (last 30 days) ────────────────── */}
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 Collection History (30 Days)</div>
+        {!feeStats?.history?.length ? (
+          <div className="card" style={{ padding: 16, textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No collections yet — press Restart Week after collecting your first fee.</div>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
+            {feeStats.history.map((h, i) => (
+              <div
+                key={h.id}
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: i < feeStats.history.length - 1 ? '1px solid var(--border)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {new Date(h.period_start).toLocaleDateString()} → {new Date(h.period_end).toLocaleDateString()}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                    {parseInt(h.total_items).toLocaleString()} items · collected by {h.collected_by}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                    {new Date(h.collected_at).toLocaleString()}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                  <div style={{ fontWeight: 800, color: '#f97316', fontSize: 16 }}>
+                    {parseFloat(h.total_fee).toFixed(2)} ETB
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Service fee editor */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>

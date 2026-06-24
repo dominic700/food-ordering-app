@@ -41,6 +41,12 @@ router.get('/cafes', async (req, res) => {
         COUNT(DISTINCT pca.id) FILTER (WHERE pca.status = 'approved') AS customer_count,
         COUNT(DISTINCT o.id)   AS total_orders,
         COUNT(DISTINCT o.id)   FILTER (WHERE o.created_at::date = CURRENT_DATE) AS orders_today,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM order_items oi
+          JOIN orders o2 ON oi.order_id = o2.id
+          WHERE o2.cafe_id = c.id AND o2.status = 'approved'
+        ), 0) AS total_items_all_time,
         COALESCE(SUM(o.service_fee) FILTER (WHERE o.status = 'approved'), 0) AS total_fees
       FROM cafes c
       LEFT JOIN cafe_owners co        ON co.cafe_id = c.id
@@ -302,6 +308,129 @@ router.delete('/promotions/:id', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// ── GET /api/admin/cafes/:cafeId/fee-stats ───────────────────
+// Returns:
+//   current_period: item count + fee total since last restart
+//   last_restart:   when the last restart was (or cafe created_at)
+//   history:        last 30 days of completed collection periods
+//   all_time_items: lifetime approved item count for dashboard card
+router.get('/cafes/:cafeId/fee-stats', async (req, res) => {
+  try {
+    const { cafeId } = req.params;
+
+    // Find when the last collection was (= start of current period)
+    const lastCollection = await pool.query(`
+      SELECT collected_at FROM fee_collections
+      WHERE cafe_id = $1
+      ORDER BY collected_at DESC LIMIT 1
+    `, [cafeId]);
+
+    // If never restarted, period starts from cafe creation
+    const periodStart = lastCollection.rows.length > 0
+      ? lastCollection.rows[0].collected_at
+      : (await pool.query('SELECT created_at FROM cafes WHERE id = $1', [cafeId])).rows[0]?.created_at;
+
+    // Current period: approved orders since last restart
+    const current = await pool.query(`
+      SELECT
+        COALESCE(SUM(oi.quantity), 0)      AS total_items,
+        COALESCE(SUM(o.service_fee), 0)    AS total_fee,
+        COUNT(DISTINCT o.id)               AS total_orders
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.cafe_id = $1
+        AND o.status = 'approved'
+        AND o.created_at > $2
+    `, [cafeId, periodStart]);
+
+    // All-time approved item count (for the dashboard card)
+    const allTime = await pool.query(`
+      SELECT COALESCE(SUM(oi.quantity), 0) AS total_items
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.cafe_id = $1 AND o.status = 'approved'
+    `, [cafeId]);
+
+    // Last 30 days of completed collection history
+    const history = await pool.query(`
+      SELECT * FROM fee_collections
+      WHERE cafe_id = $1
+        AND collected_at >= NOW() - INTERVAL '30 days'
+      ORDER BY collected_at DESC
+    `, [cafeId]);
+
+    res.json({
+      period_start:    periodStart,
+      current_period:  current.rows[0],
+      all_time_items:  parseInt(allTime.rows[0].total_items),
+      history:         history.rows,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// ── POST /api/admin/cafes/:cafeId/fee-restart ────────────────
+// Admin presses "Restart" after collecting the weekly fee.
+// Saves the current period's stats to fee_collections history,
+// then the next call to fee-stats will start counting from now.
+router.post('/cafes/:cafeId/fee-restart', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { cafeId } = req.params;
+    const { collected_by } = req.body;
+
+    // Find period start (same logic as fee-stats)
+    const lastCollection = await client.query(`
+      SELECT collected_at FROM fee_collections
+      WHERE cafe_id = $1 ORDER BY collected_at DESC LIMIT 1
+    `, [cafeId]);
+
+    const periodStart = lastCollection.rows.length > 0
+      ? lastCollection.rows[0].collected_at
+      : (await client.query('SELECT created_at FROM cafes WHERE id = $1', [cafeId])).rows[0]?.created_at;
+
+    // Compute current period totals
+    const totals = await client.query(`
+      SELECT
+        COALESCE(SUM(oi.quantity), 0)   AS total_items,
+        COALESCE(SUM(o.service_fee), 0) AS total_fee
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.cafe_id = $1
+        AND o.status = 'approved'
+        AND o.created_at > $2
+    `, [cafeId, periodStart]);
+
+    // Save to history
+    const record = await client.query(`
+      INSERT INTO fee_collections
+        (cafe_id, period_start, period_end, total_items, total_fee, collected_by)
+      VALUES ($1, $2, NOW(), $3, $4, $5)
+      RETURNING *
+    `, [
+      cafeId,
+      periodStart,
+      parseInt(totals.rows[0].total_items),
+      parseFloat(totals.rows[0].total_fee),
+      collected_by || 'admin',
+    ]);
+
+    await client.query('COMMIT');
+    res.status(201).json(record.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
