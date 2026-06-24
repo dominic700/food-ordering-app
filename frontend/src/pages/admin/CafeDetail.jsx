@@ -13,15 +13,14 @@ export default function CafeDetail() {
   const navigate   = useNavigate();
   const account    = useStore(s => s.account);
 
-  const [data, setData]         = useState(null);
-  const [loading, setLoading]   = useState(true);
+  const [data, setData]             = useState(null);
+  const [loading, setLoading]       = useState(true);
   const [editingFee, setEditingFee] = useState(false);
-  const [newFee, setNewFee]     = useState('');
-  const [saving, setSaving]     = useState(false);
-
-  const [feeStats, setFeeStats]         = useState(null);
-  const [loadingFee, setLoadingFee]     = useState(true);
-  const [restarting, setRestarting]     = useState(false);
+  const [newFee, setNewFee]         = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [feeStats, setFeeStats]     = useState(null);
+  const [loadingFee, setLoadingFee] = useState(true);
+  const [restarting, setRestarting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -51,6 +50,7 @@ export default function CafeDetail() {
     loadFeeStats();
   }, [load, loadFeeStats]);
 
+  // ── Handlers — ALL declared before any early returns ─────────
   async function handleToggle() {
     try {
       await toggleCafe(cafeId);
@@ -61,7 +61,7 @@ export default function CafeDetail() {
     }
   }
 
-  if (loading) return <Spinner fullPage label="Loading cafe..." />;
+  async function handleSaveFee() {
     const fee = parseFloat(newFee);
     if (isNaN(fee) || fee < 0) return telegram.alert('Enter a valid service fee.');
     setSaving(true);
@@ -83,14 +83,17 @@ export default function CafeDetail() {
       await restartFeeWeek(cafeId, account?.name || 'admin');
       telegram.haptic('success');
       await loadFeeStats();
-      telegram.alert('✅ Week restarted! Item count and fee have been saved to history and reset to 0.');
+      telegram.alert('✅ Week restarted! Saved to history and reset to 0.');
     } catch (err) {
       telegram.alert(err.message);
     } finally {
       setRestarting(false);
     }
   }
-  if (!data) return <div className="empty"><div className="empty-title">Cafe not found</div></div>;
+
+  // ── Early returns AFTER all hooks and handlers ───────────────
+  if (loading) return <Spinner fullPage label="Loading cafe..." />;
+  if (!data)   return <div className="empty"><div className="empty-title">Cafe not found</div></div>;
 
   const { cafe, orders, stats } = data;
 
@@ -102,7 +105,7 @@ export default function CafeDetail() {
         <NotificationBell to="/admin/notifications" />
       </div>
 
-      <div style={{ padding: '16px 16px 100px' }}>
+      <div style={{ padding: '16px 16px 0', paddingBottom: 100 }}>
 
         {/* Cafe info card */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
@@ -110,58 +113,42 @@ export default function CafeDetail() {
             <div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{cafe.name}</div>
               {cafe.address && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📍 {cafe.address}</div>}
-              {cafe.phone && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📞 {cafe.phone}</div>}
-              <div style={{ marginTop: 8 }}>
-                <span style={{
-                  background: cafe.is_active ? '#e8f5e9' : '#fff3e0',
-                  color: cafe.is_active ? '#22c55e' : '#f97316',
-                  borderRadius: 12, fontSize: 12, fontWeight: 700, padding: '3px 12px',
-                }}>
-                  {cafe.is_active ? 'Online' : 'Offline'}
-                </span>
-              </div>
+              {cafe.phone  && <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {cafe.phone}</div>}
             </div>
             <button
-              className="btn btn-sm"
-              style={{
-                background: cafe.is_active ? '#fff3e0' : '#e8f5e9',
-                color: cafe.is_active ? '#f97316' : '#22c55e',
-                border: '1.5px solid currentColor',
-                flexShrink: 0,
-              }}
+              className="btn"
+              style={{ width: 'auto', padding: '8px 14px', fontSize: 12, background: cafe.is_active ? '#e8f5e9' : '#ffeaea', color: cafe.is_active ? '#22c55e' : 'var(--red)', border: 'none' }}
               onClick={handleToggle}
             >
-              {cafe.is_active ? '⏸ Deactivate' : '▶ Activate'}
+              {cafe.is_active ? 'Active' : 'Inactive'}
             </button>
           </div>
-
-          {/* Owner info */}
-          {cafe.owner_name && (
-            <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>Owner</div>
-              <div style={{ fontWeight: 600 }}>{cafe.owner_name}</div>
-              {cafe.owner_phone && <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {cafe.owner_phone}</div>}
-              {cafe.owner_telegram_id && <div style={{ fontSize: 12, color: 'var(--text3)' }}>Telegram ID: {cafe.owner_telegram_id}</div>}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Customers</div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{stats?.customer_count || 0}</div>
             </div>
-          )}
+            <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Orders</div>
+              <div style={{ fontWeight: 800, fontSize: 18 }}>{stats?.total_orders || 0}</div>
+            </div>
+            <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Revenue</div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>{parseFloat(stats?.total_revenue || 0).toFixed(0)}</div>
+            </div>
+          </div>
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-          {[
-            { label: 'Customers', value: stats?.customer_count || 0, icon: '👥' },
-            { label: 'Total Orders', value: stats?.total_orders || 0, icon: '📋' },
-            { label: 'Revenue', value: `${parseFloat(stats?.total_revenue || 0).toFixed(0)} ETB`, icon: '💰' },
-          ].map((s, i) => (
-            <div key={i} className="card" style={{ padding: 12, textAlign: 'center' }}>
-              <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
-              <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{s.label}</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--red)' }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
+        {/* Owner info */}
+        {cafe.owner_name && (
+          <div className="card" style={{ marginBottom: 16, padding: 14 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>👤 Cafe Owner</div>
+            <div style={{ fontSize: 14 }}>{cafe.owner_name}</div>
+            {cafe.owner_phone && <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {cafe.owner_phone}</div>}
+          </div>
+        )}
 
-        {/* ── Weekly Fee Collection ─────────────────────────── */}
+        {/* ── Weekly Fee Collection ────────────────────────────── */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
@@ -204,33 +191,30 @@ export default function CafeDetail() {
           )}
 
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, lineHeight: 1.5 }}>
-            Press <strong>Restart Week</strong> after collecting the fee. This saves the current count to history and resets to 0 for the next week.
+            Press <strong>Restart Week</strong> after collecting the fee. Saves current count to history and resets to 0.
           </div>
         </div>
 
-        {/* ── Collection History (last 30 days) ────────────────── */}
+        {/* ── Collection History (last 30 days) ───────────────── */}
         <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 Collection History (30 Days)</div>
         {!feeStats?.history?.length ? (
           <div className="card" style={{ padding: 16, textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No collections yet — press Restart Week after collecting your first fee.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No collections yet. Press Restart Week after collecting your first fee.</div>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
             {feeStats.history.map((h, i) => (
-              <div
-                key={h.id}
-                style={{
-                  padding: '12px 16px',
-                  borderBottom: i < feeStats.history.length - 1 ? '1px solid var(--border)' : 'none',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}
-              >
+              <div key={h.id} style={{
+                padding: '12px 16px',
+                borderBottom: i < feeStats.history.length - 1 ? '1px solid var(--border)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
                     {new Date(h.period_start).toLocaleDateString()} → {new Date(h.period_end).toLocaleDateString()}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                    {parseInt(h.total_items).toLocaleString()} items · collected by {h.collected_by}
+                    {parseInt(h.total_items).toLocaleString()} items · {h.collected_by}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                     {new Date(h.collected_at).toLocaleString()}
@@ -248,75 +232,67 @@ export default function CafeDetail() {
 
         {/* Service fee editor */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingFee ? 12 : 0 }}>
-            <div>
-              <div style={{ fontWeight: 700 }}>💰 Service Fee</div>
-              <div style={{ fontSize: 13, color: 'var(--text2)' }}>Added per item per unit</div>
-            </div>
-            {!editingFee ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--red)' }}>{parseFloat(cafe.service_fee || 0).toFixed(2)} ETB</div>
-                <button className="btn btn-outline btn-sm" onClick={() => setEditingFee(true)}>Edit</button>
-              </div>
-            ) : null}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontWeight: 700 }}>⚙️ Service Fee per Item</div>
+            <button
+              style={{ background: 'none', border: 'none', color: 'var(--red)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+              onClick={() => setEditingFee(f => !f)}
+            >
+              {editingFee ? 'Cancel' : 'Edit'}
+            </button>
           </div>
-          {editingFee && (
+          {editingFee ? (
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 className="input"
-                style={{ paddingLeft: 14, flex: 1, fontFamily: 'var(--font-mono)', fontWeight: 700 }}
-                type="number" min="0" placeholder="0.00"
+                style={{ paddingLeft: 14, flex: 1, fontWeight: 700 }}
+                type="number" min="0" step="0.5"
                 value={newFee}
                 onChange={e => setNewFee(e.target.value)}
-                autoFocus
               />
-              <button className="btn btn-red" style={{ width: 'auto', padding: '13px 16px', flexShrink: 0 }} onClick={handleSaveFee} disabled={saving}>
+              <button className="btn btn-red" style={{ width: 'auto', padding: '13px 20px', flexShrink: 0 }} onClick={handleSaveFee} disabled={saving}>
                 {saving ? '...' : 'Save'}
               </button>
-              <button className="btn btn-outline" style={{ width: 'auto', padding: '13px 16px', flexShrink: 0 }} onClick={() => setEditingFee(false)}>
-                Cancel
-              </button>
+            </div>
+          ) : (
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--red)' }}>
+              {parseFloat(cafe.service_fee || 0).toFixed(2)} ETB
+              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)', marginLeft: 8 }}>per item</span>
             </div>
           )}
         </div>
 
-        {/* Order history last 30 days */}
-        <div className="section-header" style={{ marginBottom: 12 }}>
-          <div className="section-title" style={{ fontSize: 16 }}>Orders — Last 30 Days</div>
-          <div style={{ fontSize: 13, color: 'var(--text2)' }}>{orders?.length || 0} orders</div>
-        </div>
-
+        {/* Recent orders */}
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Recent Orders</div>
         {!orders?.length ? (
-          <div className="empty" style={{ padding: '24px 0' }}>
-            <div className="empty-icon">📋</div>
-            <div className="empty-title">No orders yet</div>
+          <div className="card" style={{ padding: 16, textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No orders in the last 30 days</div>
           </div>
         ) : (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {orders.map((order, i) => (
-              <div key={order.id} style={{ padding: '12px 14px', borderBottom: i < orders.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{order.customer_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                      {new Date(order.created_at).toLocaleDateString()} · {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
+            {orders.slice(0, 15).map((order, i) => (
+              <div key={order.id} style={{
+                padding: '12px 16px',
+                borderBottom: i < Math.min(orders.length, 15) - 1 ? '1px solid var(--border)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    #{order.id?.slice(0, 6)} · {order.customer_name}
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</div>
-                    <span style={{
-                      background: order.status === 'approved' ? '#e8f5e9' : order.status === 'cancelled' ? '#ffeaea' : '#fff3e0',
-                      color: order.status === 'approved' ? '#22c55e' : order.status === 'cancelled' ? 'var(--red)' : '#f97316',
-                      borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                    }}>
-                      {order.status}
-                    </span>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                    {order.payment_method} · {new Date(order.created_at).toLocaleDateString()}
                   </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</div>
+                  <StatusBadge status={order.status} />
                 </div>
               </div>
             ))}
           </div>
         )}
+
       </div>
 
       <AdminBottomNav active="cafes" />
