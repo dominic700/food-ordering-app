@@ -12,6 +12,7 @@ import orderRoutes        from './routes/orders.js';
 import menuRoutes         from './routes/menu.js';
 import depositRoutes      from './routes/deposits.js';
 import notificationRoutes from './routes/notifications.js';
+import { startAutoCancelJob } from './utils/autoCancel.js';
 
 dotenv.config();
 
@@ -60,4 +61,5 @@ app.use((err, req, res, next) => {
 // ── Start ─────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  startAutoCancelJob();
 });
