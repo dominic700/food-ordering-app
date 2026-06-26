@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth, cafeOwnerAuth } from '../middleware/auth.js';
-import { sendTelegramMessage, newOrderMessage, orderApprovedMessage, orderCancelledMessage } from '../utils/telegramBot.js';
+import { sendTelegramMessage, newOrderMessage, orderApprovedMessage, orderCancelledMessage, transferRefundReminderMessage } from '../utils/telegramBot.js';
 import { createNotification } from '../utils/notifications.js';
 
 const router = express.Router();
@@ -435,31 +435,63 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
     );
     const cancelledOrder = cancelResult.rows[0];
 
+    // Fetch customer telegram_id + phone, cafe name, cafe owner phone
     const infoResult = await client.query(`
-      SELECT ga.telegram_id, c.name AS cafe_name
+      SELECT
+        ga.telegram_id   AS customer_telegram_id,
+        ga.name          AS customer_name,
+        ga.phone         AS customer_phone,
+        c.name           AS cafe_name,
+        co.phone         AS owner_phone,
+        co.telegram_id   AS owner_telegram_id
       FROM per_cafe_accounts pca
       JOIN global_accounts ga ON pca.global_account_id = ga.id
-      JOIN cafes c ON c.id = pca.cafe_id
+      JOIN cafes c            ON c.id = pca.cafe_id
+      JOIN cafe_owners co     ON co.cafe_id = c.id
       WHERE pca.id = $1
     `, [order.per_cafe_account_id]);
 
     await client.query('COMMIT');
 
     if (infoResult.rows.length > 0) {
-      const { telegram_id, cafe_name } = infoResult.rows[0];
+      const {
+        customer_telegram_id, customer_name, customer_phone,
+        cafe_name, owner_phone, owner_telegram_id
+      } = infoResult.rows[0];
 
+      const isTransfer = cancelledOrder.payment_method === 'transfer';
+
+      // Notify customer — with transfer refund instructions if applicable
       sendTelegramMessage(
-        telegram_id,
-        orderCancelledMessage(cancelledOrder, cafe_name)
+        customer_telegram_id,
+        orderCancelledMessage(cancelledOrder, cafe_name, owner_phone, 'cafe')
       );
 
       createNotification({
-        telegramId: telegram_id,
+        telegramId: customer_telegram_id,
         cafeId:     cafe_id,
         type:       'order_cancelled',
         title:      `Order cancelled — ${parseFloat(cancelledOrder.total).toFixed(2)} ETB`,
-        body:       `${cafe_name} cancelled your order.${refundAmount > 0 ? ` ${refundAmount.toFixed(2)} ETB was refunded to your balance.` : ''}`
+        body:       isTransfer
+          ? `${cafe_name} cancelled your transfer order. Contact them at ${owner_phone} for your refund.`
+          : `${cafe_name} cancelled your order.`
       });
+
+      // Notify cafe owner to send refund if transfer payment
+      if (isTransfer) {
+        sendTelegramMessage(
+          owner_telegram_id,
+          transferRefundReminderMessage(cancelledOrder, customer_name, customer_phone, 'cafe')
+        );
+
+        createNotification({
+          telegramId: owner_telegram_id,
+          cafeId:     cafe_id,
+          type:       'refund_required',
+          title:      `Refund required — ${parseFloat(cancelledOrder.total).toFixed(2)} ETB to ${customer_name}`,
+          body:       `Send ${parseFloat(cancelledOrder.total).toFixed(2)} ETB back to ${customer_name} (${customer_phone}).`
+        });
+      }
     }
 
     res.json({ message: 'Order cancelled' });

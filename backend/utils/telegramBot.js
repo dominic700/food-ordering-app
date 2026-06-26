@@ -92,23 +92,66 @@ export function orderApprovedMessage(order, cafeName) {
 
 
 // ── orderCancelledMessage ───────────────────────────────────────
-// Sent to CUSTOMER when the cafe cancels/rejects their order.
-// Wallet orders mention the refund since balance was already
-// deducted at order time and gets restored on cancellation.
-export function orderCancelledMessage(order, cafeName) {
-  const wasWallet = order.payment_method === 'wallet';
+// Sent to CUSTOMER when the cafe manually cancels their order.
+// Transfer orders get special refund instructions with cafe owner
+// phone so the customer knows who to contact.
+export function orderCancelledMessage(order, cafeName, cafeOwnerPhone, cancelledBy = 'cafe') {
+  const wasWallet   = order.payment_method === 'wallet';
+  const wasTransfer = order.payment_method === 'transfer';
+  const wasAuto     = cancelledBy === 'auto';
+
   const refundAmount = parseFloat(order.paid_from_balance || 0) + parseFloat(order.paid_from_credit || 0);
 
-  const refundNote = wasWallet && refundAmount > 0
-    ? `\n\n💰 <b>${refundAmount.toFixed(2)} ETB</b> has been refunded to your balance.`
-    : '';
+  const header = wasAuto
+    ? `⏱ <b>Order Auto-Cancelled</b>`
+    : `❌ <b>Order Cancelled</b>`;
+
+  const reason = wasAuto
+    ? `Your order was automatically cancelled because <b>${cafeName}</b> didn't respond within 7 minutes.`
+    : `<b>${cafeName}</b> cancelled your order #${order.id?.slice(0, 8)}.`;
+
+  let refundNote = '';
+  if (wasWallet && refundAmount > 0) {
+    refundNote = `\n\n💰 <b>${refundAmount.toFixed(2)} ETB</b> has been refunded to your wallet balance automatically.`;
+  } else if (wasTransfer) {
+    refundNote =
+      `\n\n🏦 <b>Transfer Refund Required</b>\n` +
+      `You paid <b>${parseFloat(order.total).toFixed(2)} ETB</b> by transfer. ` +
+      `The cafe will send your money back.\n\n` +
+      `📞 Contact the cafe owner to receive your refund:\n` +
+      `<b>${cafeOwnerPhone || 'Contact the cafe directly'}</b>\n\n` +
+      `Send them your transfer account name and phone number so they can refund you.`;
+  }
 
   return (
-    `❌ <b>Order Cancelled</b>\n\n` +
-    `<b>${cafeName}</b> cancelled your order #${order.id?.slice(0, 8)}.\n` +
+    `${header}\n\n` +
+    `${reason}\n` +
     `Total: <b>${parseFloat(order.total).toFixed(2)} ETB</b>` +
     `${refundNote}\n\n` +
-    `If you have questions, please contact the cafe directly.`
+    `We apologize for the inconvenience.`
+  );
+}
+
+
+// ── transferRefundReminderMessage ─────────────────────────────
+// Sent to CAFE OWNER when they cancel a transfer order —
+// reminds them to send back the money to the customer and gives
+// the customer's phone number.
+export function transferRefundReminderMessage(order, customerName, customerPhone, cancelledBy = 'cafe') {
+  const wasAuto = cancelledBy === 'auto';
+  const header  = wasAuto
+    ? `⏱ <b>Auto-Cancelled Order — Refund Required</b>`
+    : `❌ <b>Cancelled Order — Refund Required</b>`;
+
+  return (
+    `${header}\n\n` +
+    `Order #${order.id?.slice(0, 8)} paid by <b>transfer</b> was cancelled.\n\n` +
+    `💸 You need to send <b>${parseFloat(order.total).toFixed(2)} ETB</b> back to the customer:\n\n` +
+    `👤 Customer: <b>${customerName || 'Unknown'}</b>\n` +
+    `📞 Phone: <b>${customerPhone || 'Not available'}</b>\n\n` +
+    `Ask the customer to send you their transfer account name/number via inbox, ` +
+    `then send the refund to their account.\n\n` +
+    `Provider used: ${order.transfer_provider?.replace('_', ' ') || 'transfer'}`
   );
 }
 
