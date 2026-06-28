@@ -11,9 +11,6 @@ import CartBar from '../../components/CartBar.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
-
-
-
 export default function CafeMenu() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();

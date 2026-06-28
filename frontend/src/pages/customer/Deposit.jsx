@@ -8,9 +8,6 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
-
-
-
 const PAYMENT_METHODS = [
   { value: 'telebirr',      label: '📱 Telebirr' },
   { value: 'cbe_birr',      label: '🏦 CBE Birr' },
@@ -31,7 +28,6 @@ export default function Deposit() {
   const [amount, setAmount] = useState('');
   const [txNumber, setTxNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  
 
   useEffect(() => {
     telegram.showBackButton(() => navigate(`/cafe/${cafeId}/profile`));

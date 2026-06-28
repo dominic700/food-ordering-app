@@ -6,9 +6,6 @@ import BottomNav from '../../components/BottomNav.jsx';
 import CafeCard from '../../components/CafeCard.jsx';
 import Spinner from '../../components/Spinner.jsx';
 
-
-
-
 export default function Favorites() {
   const navigate = useNavigate();
   const favorites = useStore(s => s.favorites);
@@ -16,7 +13,6 @@ export default function Favorites() {
   const setCurrentCafe = useStore(s => s.setCurrentCafe);
   const [cafes, setCafes] = useState([]);
   const [loading, setLoading] = useState(true);
-
 
   useEffect(() => {
     getCafes().then(data => setCafes(data.cafes)).catch(console.error).finally(() => setLoading(false));

@@ -5,10 +5,7 @@ import { getCafes } from '../../api/customer.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import PromoSlider from '../../components/PromoSlider.jsx';
 import CafeCard from '../../components/CafeCard.jsx';
-import NotificationBell from '../../components/NotificationBell.jsx';
-import LangToggle from '../../components/LangToggle.jsx';
 import Spinner from '../../components/Spinner.jsx';
-import useLanguage from '../../hooks/useLanguage.js';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -16,7 +13,6 @@ export default function Home() {
   const setCurrentCafe = useStore(s => s.setCurrentCafe);
   const favorites = useStore(s => s.favorites);
   const toggleFavorite = useStore(s => s.toggleFavorite);
-  const { t } = useLanguage();
 
   const [cafes, setCafes] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -37,45 +33,68 @@ export default function Home() {
     navigate(`/cafe/${cafe.id}/menu`);
   }
 
+  // Fallback slides shown when no promos in database yet
   const fallbackSlides = [
-    { badge: '🍽️ WELCOME', title: 'Order from your favorite cafes', desc: 'Browse menus and pay with wallet, credit, or transfer', emoji: '🍔' },
-    { badge: '💳 EASY PAY', title: 'Deposit & Pay with Balance', desc: 'Load your wallet and order in seconds', emoji: '💰' },
-    { badge: '✨ CREDIT', title: 'Use Credit Limit', desc: 'Order now, pay later with your cafe credit limit', emoji: '🎯' },
+    {
+      badge: '🍽️ WELCOME',
+      title: 'Order from your favorite cafes',
+      desc: 'Browse menus and pay with wallet, credit, or transfer',
+      emoji: '🍔',
+    },
+    {
+      badge: '💳 EASY PAY',
+      title: 'Deposit & Pay with Balance',
+      desc: 'Load your wallet and order in seconds',
+      emoji: '💰',
+    },
+    {
+      badge: '✨ CREDIT',
+      title: 'Apply for Credit',
+      desc: 'Order now, pay later with your cafe credit limit',
+      emoji: '🎯',
+    },
   ];
 
-  if (loading) return <Spinner fullPage label={t('loading')} />;
+  if (loading) return <Spinner fullPage label="Loading..." />;
 
   return (
     <div className="page">
+      {/* Header */}
       <div className="header">
-        <button className="header-icon" style={{ position: 'relative' }} onClick={() => {}}>
-          📍
-        </button>
+        <div className="header-icon">📍</div>
         <div style={{ flex: 1, color: '#fff' }}>
-          <div style={{ fontSize: 11, color: '#999' }}>{t('welcomeBack')}</div>
-          <div style={{ fontWeight: 700 }}>{account?.name?.split(' ')[0] || 'Guest'}</div>
+          <div style={{ fontSize: 11, color: '#999' }}>Welcome back</div>
+          <div style={{ fontWeight: 700 }}>
+            {account?.name?.split(' ')[0] || 'Guest'}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <LangToggle />
-          <NotificationBell to="/notifications" />
-        </div>
+        <button className="header-icon" style={{ position: 'relative' }}>
+          🔔
+        </button>
       </div>
 
+      {/* Promo Slider — real images from DB or fallback */}
       <div style={{ paddingTop: 16 }}>
-        <PromoSlider slides={promotions} fallbackSlides={fallbackSlides} />
+        <PromoSlider
+          slides={promotions}
+          fallbackSlides={fallbackSlides}
+        />
       </div>
 
+      {/* Cafe list */}
       <div style={{ padding: '0 16px' }}>
         <div className="section-header">
-          <div className="section-title">{t('chooseCafe')}</div>
-          <div className="section-link" onClick={() => navigate('/favorites')}>{t('navFavorites')} ›</div>
+          <div className="section-title">Popular Cafes</div>
+          <div className="section-link" onClick={() => navigate('/favorites')}>
+            Favorites ›
+          </div>
         </div>
 
         {cafes.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">🍽️</div>
-            <div className="empty-title">{t('noCafes')}</div>
-            <div className="empty-desc">{t('noCafesDesc')}</div>
+            <div className="empty-title">No cafes yet</div>
+            <div className="empty-desc">Check back soon</div>
           </div>
         ) : (
           <div className="grid-3">

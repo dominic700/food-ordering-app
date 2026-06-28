@@ -5,8 +5,6 @@ import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-import LangToggle from '../../components/LangToggle.jsx';
-import useLanguage from '../../hooks/useLanguage.js';
 
 const COLORS = ['#e63946','#3b82f6','#22c55e','#f97316','#8b5cf6','#ec4899'];
 function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.length]; }
@@ -16,11 +14,10 @@ function getInitials(name) {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { t }    = useLanguage();
   const [cafes, setCafes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [menuOpen, setMenuOpen] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null); // cafe id with open ⋮ menu
 
   const load = useCallback(async () => {
     try {
@@ -50,31 +47,29 @@ export default function AdminDashboard() {
     !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.address?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalCafes       = cafes.length;
-  const activeCafes      = cafes.filter(c => c.is_active).length;
-  const inactiveCafes    = cafes.filter(c => !c.is_active).length;
+  const totalCafes    = cafes.length;
+  const activeCafes   = cafes.filter(c => c.is_active).length;
+  const inactiveCafes = cafes.filter(c => !c.is_active).length;
   const totalOrdersToday = cafes.reduce((s, c) => s + parseInt(c.orders_today || 0), 0);
   const totalOrdersAll   = cafes.reduce((s, c) => s + parseInt(c.total_orders || 0), 0);
 
   const STATS = [
-    { icon: '🏪', label: t('activeCafes'),   value: activeCafes,      sub: t('active')  },
-    { icon: '⏸️', label: t('inactiveCafes'), value: inactiveCafes,    sub: t('inactive') },
-    { icon: '📋', label: t('todayOrdersAll'), value: totalOrdersToday, sub: t('allCafes') },
-    { icon: '📦', label: t('totalOrdersAll'), value: totalOrdersAll,   sub: t('allTime')  },
+    { icon: '🏪', label: 'Total Cafes',       value: totalCafes,    sub: 'Active'    },
+    { icon: '🛍️', label: 'Active Cafes',      value: activeCafes,   sub: 'Online'    },
+    { icon: '⏸️', label: 'Inactive Cafes',    value: inactiveCafes, sub: 'Offline'   },
+    { icon: '📋', label: "Today's Orders", value: totalOrdersToday, sub: 'All Cafes' },
+    { icon: '📦', label: 'Total Orders',   value: totalOrdersAll,   sub: 'All Time'  },
   ];
 
-  if (loading) return <Spinner fullPage label={t('loading')} />;
+  if (loading) return <Spinner fullPage label="Loading admin dashboard..." />;
 
   return (
     <div className="page" style={{ background: '#000', minHeight: '100vh', paddingBottom: 0 }}>
       {/* Header */}
       <div className="header">
         <button className="header-icon">☰</button>
-        <div className="header-title">{t('adminDashboard')}</div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <LangToggle />
-          <NotificationBell to="/admin/notifications" />
-        </div>
+        <div className="header-title">Admin Terminal</div>
+        <NotificationBell to="/admin/notifications" />
       </div>
 
       {/* White rounded main container */}

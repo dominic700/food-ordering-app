@@ -7,7 +7,6 @@ import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
-
 const TRANSFER_PROVIDERS = [
   { value: 'telebirr',      label: '📱 Telebirr' },
   { value: 'cbe_birr',      label: '🏦 CBE Birr' },

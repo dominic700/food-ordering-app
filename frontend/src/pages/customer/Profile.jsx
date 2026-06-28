@@ -8,8 +8,6 @@ import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-import LangToggle from '../../components/LangToggle.jsx';
-import useLanguage from '../../hooks/useLanguage.js';
 
 const DEPOSIT_ICON = { verified: '⬇️', failed: '✕', pending: '⏳' };
 
@@ -40,8 +38,6 @@ export default function Profile() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [cafeId]);
-
-  const { t } = useLanguage();
 
   const initials    = (account?.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const balance     = parseFloat(cafeAccount?.balance || 0);
@@ -92,11 +88,8 @@ export default function Profile() {
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
-        <div className="header-title">{t('profile')}</div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <LangToggle />
-          <NotificationBell to="/notifications" />
-        </div>
+        <div className="header-title">Profile</div>
+        <NotificationBell to="/notifications" />
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
@@ -119,23 +112,24 @@ export default function Profile() {
         {/* Balance card */}
         <div className="balance-card" style={{ marginBottom: 16, background: isNegative ? 'linear-gradient(135deg, #e63946, #c0000a)' : undefined }}>
           <div className="balance-emoji">{isNegative ? '⚠️' : '👛'}</div>
-          <div className="balance-label">{isNegative ? t('youOwe') : t('currentBalance')}</div>
+          <div className="balance-label">{isNegative ? 'You Owe' : 'Current Balance'}</div>
           <div className="balance-amount">
-            {isNegative ? '−' : ''}{Math.abs(balance).toFixed(2)} <span>{t('etb')}</span>
+            {isNegative ? '−' : ''}{Math.abs(balance).toFixed(2)} <span>ETB</span>
           </div>
           {creditLimit > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 14, color: 'rgba(255,255,255,0.85)' }}>
-              <span>{t('creditLimit')}: {creditLimit.toFixed(2)} {t('etb')}</span>
-              <span>{t('remainingCredit')}: {(creditLimit - Math.max(-balance, 0)).toFixed(2)} {t('etb')}</span>
+              <span>Credit limit: {creditLimit.toFixed(2)} ETB</span>
+              <span>Remaining credit: {(creditLimit - Math.max(-balance, 0)).toFixed(2)} ETB</span>
             </div>
           )}
           <div className="balance-actions">
             <button className="btn btn-white" onClick={() => navigate(`/cafe/${cafeId}/deposit`)}>
-              {t('deposit')}
+              + Deposit
             </button>
+            {/* Send Money button — only for approved customers */}
             {cafeAccount?.status === 'approved' && (
               <button className="btn btn-white" onClick={openSend}>
-                {t('sendMoney')}
+                💸 Send
               </button>
             )}
           </div>
@@ -143,8 +137,8 @@ export default function Profile() {
 
         {/* Deposit history */}
         <div className="section-header">
-          <div className="section-title" style={{ fontSize: 16 }}>{t('depositHistory')}</div>
-          <div className="section-link" onClick={() => navigate(`/cafe/${cafeId}/deposit`)}>{t('viewAll')}</div>
+          <div className="section-title" style={{ fontSize: 16 }}>Deposit History</div>
+          <div className="section-link" onClick={() => navigate(`/cafe/${cafeId}/deposit`)}>View All ›</div>
         </div>
       </div>
 
@@ -176,7 +170,7 @@ export default function Profile() {
           <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/menu?register=1`)}>
             <div className="profile-menu-icon" style={{ background: 'var(--red-light)' }}>📝</div>
             <div className="profile-menu-label" style={{ color: 'var(--red)', fontWeight: 700 }}>
-              {cafeAccount?.status === 'pending' ? t('registrationPending') : t('registerAtCafe')}
+              {cafeAccount?.status === 'pending' ? 'Registration Pending — Tap for Status' : 'Register at this Cafe'}
             </div>
             <div className="profile-chevron">›</div>
           </div>
@@ -184,23 +178,23 @@ export default function Profile() {
         {cafeAccount?.status === 'approved' && (
           <div className="profile-menu-item" onClick={openSend}>
             <div className="profile-menu-icon" style={{ background: '#e8f5e9' }}>💸</div>
-            <div className="profile-menu-label">{t('sendMoneyTitle')}</div>
+            <div className="profile-menu-label">Send Money to Someone</div>
             <div className="profile-chevron">›</div>
           </div>
         )}
         <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/orders`)}>
           <div className="profile-menu-icon">🧾</div>
-          <div className="profile-menu-label">{t('orderHistory')}</div>
+          <div className="profile-menu-label">Order History</div>
           <div className="profile-chevron">›</div>
         </div>
         <div className="profile-menu-item" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
           <div className="profile-menu-icon">🍽️</div>
-          <div className="profile-menu-label">{t('browseMenu')}</div>
+          <div className="profile-menu-label">Browse Menu</div>
           <div className="profile-chevron">›</div>
         </div>
         <div className="profile-menu-item" onClick={() => navigate('/')}>
           <div className="profile-menu-icon">🏪</div>
-          <div className="profile-menu-label">{t('switchCafe')}</div>
+          <div className="profile-menu-label">Switch Cafe</div>
           <div className="profile-chevron">›</div>
         </div>
       </div>
@@ -238,18 +232,22 @@ export default function Profile() {
             ) : (
               /* ── Send form ─────────────────────────────────── */
               <>
-                <div className="sheet-title">{t('sendMoneyTitle')}</div>
+                <div className="sheet-title">💸 Send Money</div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.5 }}>
-                  {t('sendMoneyDesc')} <strong>{cafe?.name}</strong>.
+                  Send wallet balance to another customer registered at <strong>{cafe?.name}</strong>.
+                  They must be approved at this cafe.
                 </div>
+
+                {/* Available to send */}
                 <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('availableToSend')}</span>
-                  <span style={{ fontWeight: 800, color: 'var(--red)', fontSize: 16 }}>
-                    {maxSend.toFixed(2)} {t('etb')}
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Available to send</span>
+                  <span style={{ fontWeight: 800, color: maxSend < 0 ? 'var(--red)' : 'var(--red)', fontSize: 16 }}>
+                    {maxSend.toFixed(2)} ETB
                   </span>
                 </div>
+
                 <div className="input-group">
-                  <label className="input-label">{t('receiverPhone')}</label>
+                  <label className="input-label">Receiver's Phone Number</label>
                   <input
                     className="input"
                     style={{ paddingLeft: 14 }}
@@ -259,23 +257,39 @@ export default function Profile() {
                     onChange={e => setToPhone(e.target.value)}
                   />
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                    {t('receiverPhoneHint')}
+                    Must be registered and approved at {cafe?.name}
                   </div>
                 </div>
+
                 <div className="input-group">
-                  <label className="input-label">{t('amountEtb')}</label>
+                  <label className="input-label">Amount (ETB)</label>
                   <input
                     className="input"
                     style={{ paddingLeft: 14, fontWeight: 700, fontSize: 20 }}
-                    type="number" min="1" placeholder="0.00"
+                    type="number"
+                    min="1"
+                    placeholder="0.00"
                     value={sendAmount}
                     onChange={e => setSendAmount(e.target.value)}
                   />
+                  {creditLimit > 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                      Includes your credit limit — your balance can go negative if you send more than you have.
+                    </div>
+                  )}
                 </div>
-                <button className="btn btn-red" onClick={handleSend} disabled={sending} style={{ marginBottom: 10 }}>
-                  {sending ? t('sending') : `💸 ${t('send')} ${sendAmount ? parseFloat(sendAmount).toFixed(2) + ' ' + t('etb') : ''}`}
+
+                <button
+                  className="btn btn-red"
+                  onClick={handleSend}
+                  disabled={sending}
+                  style={{ marginBottom: 10 }}
+                >
+                  {sending ? 'Sending...' : `💸 Send ${sendAmount ? parseFloat(sendAmount).toFixed(2) + ' ETB' : ''}`}
                 </button>
-                <button className="btn btn-outline" onClick={closeSend}>{t('cancel')}</button>
+                <button className="btn btn-outline" onClick={closeSend}>
+                  Cancel
+                </button>
               </>
             )}
           </div>
