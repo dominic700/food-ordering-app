@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
 import telegram from '../telegram.js';
-import useLanguage from '../../hooks/useLanguage.js';
+import useLanguage from '../hooks/useLanguage.js';
 
 
  
