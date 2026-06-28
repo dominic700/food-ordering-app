@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
 import telegram from '../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
+
+
+ 
 
 // NOTE: getRegistrations is imported lazily inside the useEffect
 // below (only when variant === 'cafe-owner') to avoid crashing
@@ -11,6 +15,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
   const navigate    = useNavigate();
   const cartCount   = useStore(s => s.cartCount());
   const currentCafe = useStore(s => s.currentCafe);
+  const { t } = useLanguage();
 
   // Live pending-registration badge — only fetched for cafe-owner
   const [pendingCount, setPendingCount] = useState(0);
