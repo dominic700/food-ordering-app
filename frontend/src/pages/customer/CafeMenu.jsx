@@ -10,10 +10,9 @@ import MenuItemCard from '../../components/MenuItemCard.jsx';
 import CartBar from '../../components/CartBar.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-import useLanguage from '../../hooks/useLanguage.js';
-import LangToggle from '../../components/LangToggle.jsx';
 
-const { t } = useLanguage();  // inside the component function
+
+
 
 export default function CafeMenu() {
   const { cafeId }  = useParams();
