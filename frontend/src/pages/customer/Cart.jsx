@@ -6,6 +6,10 @@ import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
+import LangToggle from '../../components/LangToggle.jsx';
+
+const { t } = useLanguage();  // inside the component function
 
 const TRANSFER_PROVIDERS = [
   { value: 'telebirr',      label: '📱 Telebirr' },

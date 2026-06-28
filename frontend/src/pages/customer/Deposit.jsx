@@ -7,6 +7,10 @@ import BottomNav from '../../components/BottomNav.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
+import LangToggle from '../../components/LangToggle.jsx';
+
+
 
 const PAYMENT_METHODS = [
   { value: 'telebirr',      label: '📱 Telebirr' },
@@ -28,6 +32,7 @@ export default function Deposit() {
   const [amount, setAmount] = useState('');
   const [txNumber, setTxNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { t } = useLanguage();  // inside the component function
 
   useEffect(() => {
     telegram.showBackButton(() => navigate(`/cafe/${cafeId}/profile`));

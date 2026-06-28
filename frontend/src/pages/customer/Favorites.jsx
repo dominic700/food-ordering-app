@@ -5,6 +5,10 @@ import { getCafes } from '../../api/customer.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import CafeCard from '../../components/CafeCard.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
+import LangToggle from '../../components/LangToggle.jsx';
+
+
 
 export default function Favorites() {
   const navigate = useNavigate();
@@ -13,6 +17,7 @@ export default function Favorites() {
   const setCurrentCafe = useStore(s => s.setCurrentCafe);
   const [cafes, setCafes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     getCafes().then(data => setCafes(data.cafes)).catch(console.error).finally(() => setLoading(false));
