@@ -5,6 +5,8 @@ import { getDashboard } from '../../api/cafe.js';
 import { getPendingOrders, getOrderHistory } from '../../api/orders.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 import Spinner from '../../components/Spinner.jsx';
 
 // Greeting based on time of day
@@ -24,7 +26,8 @@ const STATUS_STYLE = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const account = useStore(s => s.account);
+  const account  = useStore(s => s.account);
+  const { t }    = useLanguage();
 
   const [stats, setStats] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -78,25 +81,28 @@ export default function Dashboard() {
         <div style={{ flex: 1, color: '#fff', textAlign: 'center', fontWeight: 700, fontSize: 16 }}>
           {cafeName} ▾
         </div>
-        <NotificationBell to="/cafe-home/notifications" />
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <NotificationBell to="/cafe-home/notifications" />
+        </div>
       </div>
 
       {/* Greeting */}
       <div style={{ background: '#fff', padding: '20px 16px 16px' }}>
         <div style={{ fontSize: 22, fontWeight: 800 }}>{getGreeting()}</div>
-        <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4 }}>Here's what's happening today.</div>
+        <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4 }}>{t('todayOrders')} {t('dashboard')}</div>
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
 
         {/* Today's Overview */}
-        <div className="section-title" style={{ marginBottom: 12 }}>Today's Overview</div>
+        <div className="section-title" style={{ marginBottom: 12 }}>{t('dashboard')}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
           <div className="card" style={{ padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ffeaea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🛍️</div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today's Orders</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('todayOrders')}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--red)' }}>{stats?.orders_today || 0}</div>
               </div>
             </div>
@@ -105,7 +111,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🕐</div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Pending Orders</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('pendingOrders')}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#f97316' }}>{stats?.pending_orders || 0}</div>
               </div>
             </div>
@@ -114,7 +120,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✅</div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Completed (30d)</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('completedOrders')}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: '#22c55e' }}>{stats?.approved_orders_30d || 0}</div>
               </div>
             </div>
@@ -123,8 +129,8 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ffeaea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💰</div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text2)' }}>Today's Revenue</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>{parseFloat(stats?.revenue_today || 0).toFixed(0)} ETB</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('todayRevenue')}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>{parseFloat(stats?.revenue_today || 0).toFixed(0)} {t('etb')}</div>
               </div>
             </div>
           </div>
@@ -143,9 +149,9 @@ export default function Dashboard() {
             <span style={{ fontSize: 22 }}>📝</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 14, color: '#c2410c' }}>
-                {stats.pending_registrations} new registration{stats.pending_registrations > 1 ? 's' : ''} waiting
+                {stats.pending_registrations} {stats.pending_registrations > 1 ? t('newRegsBannerPlural') : t('newRegsBanner')}
               </div>
-              <div style={{ fontSize: 12, color: '#c2410c' }}>Tap to review and approve</div>
+              <div style={{ fontSize: 12, color: '#c2410c' }}>{t('tapToReview')}</div>
             </div>
             <span style={{ color: '#c2410c', fontSize: 18 }}>›</span>
           </div>
@@ -153,12 +159,12 @@ export default function Dashboard() {
 
         {/* Recent Orders */}
         <div className="section-header" style={{ marginBottom: 12 }}>
-          <div className="section-title">Recent Orders</div>
-          <div className="section-link" onClick={() => navigate('/cafe-home/orders')}>View All</div>
+          <div className="section-title">{t('recentOrders')}</div>
+          <div className="section-link" onClick={() => navigate('/cafe-home/orders')}>{t('viewAllOrders')}</div>
         </div>
 
         {recentOrders.length === 0 ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 24, textAlign: 'center', padding: '16px 0' }}>No orders yet today</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 24, textAlign: 'center', padding: '16px 0' }}>{t('noRecentOrders')}</div>
         ) : (
           <div className="card" style={{ padding: 0, marginBottom: 24, overflow: 'hidden' }}>
             {recentOrders.map((order, i) => {
@@ -169,7 +175,7 @@ export default function Dashboard() {
                     <div style={{ fontWeight: 700 }}>
                       #{order.id?.slice(0, 6)}
                       <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text2)', marginLeft: 8 }}>
-                        {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items
+                        {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} {t('items')}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text2)' }}>
@@ -183,11 +189,11 @@ export default function Dashboard() {
                   ))}
                   {order.items?.length > 2 && (
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 2 }}>
-                      +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
+                      +{order.items.length - 2} {t('items')}
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(2)} ETB</div>
+                    <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(2)} {t('etb')}</div>
                     <span style={{ background: s.bg, color: s.color, borderRadius: 12, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>{s.label}</span>
                   </div>
                 </div>

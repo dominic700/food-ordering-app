@@ -9,6 +9,8 @@ import NotificationBell from '../../components/NotificationBell.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 
 function getInitials(name) {
   return (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -18,6 +20,7 @@ function avatarColor(name) { return COLORS[(name?.charCodeAt(0) || 0) % COLORS.l
 
 export default function CreditApplications() {
   const navigate = useNavigate();
+  const { t }    = useLanguage();
 
   const [tab, setTab]                     = useState('registrations');
   const [registrations, setRegistrations] = useState([]);
@@ -133,8 +136,11 @@ export default function CreditApplications() {
 
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
-        <div className="header-title">Customers & Registrations</div>
-        <NotificationBell to="/cafe-home/notifications" />
+        <div className="header-title">{t('customersAndRegs')}</div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <NotificationBell to="/cafe-home/notifications" />
+        </div>
       </div>
 
       {/* Upper tabs */}
@@ -143,7 +149,7 @@ export default function CreditApplications() {
           className={`upper-tab ${tab === 'registrations' ? 'active' : ''}`}
           onClick={() => setTab('registrations')}
         >
-          📝 Registrations
+          {t('registrations')}
           {registrations.length > 0 && (
             <span className="upper-tab-badge">{registrations.length}</span>
           )}
@@ -152,7 +158,7 @@ export default function CreditApplications() {
           className={`upper-tab ${tab === 'customers' ? 'active' : ''}`}
           onClick={() => setTab('customers')}
         >
-          👥 Customers
+          {t('customers')}
           {customers.length > 0 && (
             <span className="upper-tab-badge">{customers.length}</span>
           )}
@@ -178,17 +184,10 @@ export default function CreditApplications() {
           registrations.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">📝</div>
-              <div className="empty-title">No pending registrations</div>
-              <div className="empty-desc">
-                New registration requests will appear here automatically.
-                {'\n'}If you just received a notification, pull to refresh.
-              </div>
-              <button
-                className="btn btn-red"
-                style={{ marginTop: 16, maxWidth: 200 }}
-                onClick={load}
-              >
-                ↻ Refresh now
+              <div className="empty-title">{t('noPendingRegs')}</div>
+              <div className="empty-desc">{t('noPendingRegsDesc')}</div>
+              <button className="btn btn-red" style={{ marginTop: 16, maxWidth: 200 }} onClick={load}>
+                {t('refreshNow')}
               </button>
             </div>
           ) : (
@@ -207,10 +206,9 @@ export default function CreditApplications() {
                     </div>
                   </div>
                   <span style={{ background: '#fff3e0', color: '#f97316', borderRadius: 12, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>
-                    Pending
+                    {t('pending')}
                   </span>
                 </div>
-
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     className="btn btn-outline"
@@ -218,7 +216,7 @@ export default function CreditApplications() {
                     disabled={actionId === reg.id}
                     onClick={() => handleReject(reg.id)}
                   >
-                    ✕ Reject
+                    ✕ {t('reject')}
                   </button>
                   <button
                     className="btn btn-red"
@@ -226,7 +224,7 @@ export default function CreditApplications() {
                     disabled={actionId === reg.id}
                     onClick={() => handleApprove(reg.id)}
                   >
-                    {actionId === reg.id ? 'Processing...' : '✓ Approve'}
+                    {actionId === reg.id ? t('processing') : `✓ ${t('approve')}`}
                   </button>
                 </div>
               </div>
@@ -239,8 +237,8 @@ export default function CreditApplications() {
           customers.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">👥</div>
-              <div className="empty-title">No approved customers yet</div>
-              <div className="empty-desc">Customers appear here after you approve their registration</div>
+              <div className="empty-title">{t('noCustomers')}</div>
+              <div className="empty-desc">{t('noCustomersDesc')}</div>
             </div>
           ) : (
             customers.map(customer => {
@@ -262,11 +260,11 @@ export default function CreditApplications() {
                       <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
                       <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
                         <span style={{ color: isNeg ? 'var(--red)' : '#22c55e', fontWeight: 700 }}>
-                          {isNeg ? '−' : ''}{Math.abs(balance).toFixed(0)} ETB
-                          {isNeg ? ' (owes)' : ' balance'}
+                          {isNeg ? '−' : ''}{Math.abs(balance).toFixed(0)} {t('etb')}
+                          {' '}{isNeg ? t('owes') : t('balance')}
                         </span>
                         <span style={{ color: '#3b82f6' }}>
-                          Limit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB
+                          {t('creditLimitLabel')}: {parseFloat(customer.credit_limit || 0).toFixed(0)} {t('etb')}
                         </span>
                       </div>
                     </div>
@@ -317,9 +315,9 @@ export default function CreditApplications() {
             })()}
 
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Set Credit Limit</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('setCreditLimit')}</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-                How far negative this customer's balance can go.
+                {t('setCreditDesc')}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
@@ -335,7 +333,7 @@ export default function CreditApplications() {
                   onClick={handleSetCreditLimit}
                   disabled={savingLimit}
                 >
-                  {savingLimit ? '...' : 'Set'}
+                  {savingLimit ? '...' : t('set')}
                 </button>
               </div>
             </div>
