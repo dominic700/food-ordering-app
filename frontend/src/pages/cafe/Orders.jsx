@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { getPendingOrders, getOrderHistory, approveOrder, cancelOrder } from '../../api/orders.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
+import LangToggle from '../../components/LangToggle.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 import telegram from '../../telegram.js';
 
 const TABS = [
@@ -22,6 +24,7 @@ const STATUS_BADGE = {
 
 export default function Orders() {
   const navigate = useNavigate();
+  const { t }    = useLanguage();
   const [tab, setTab] = useState('new');
   const [pending, setPending] = useState([]);
   const [history, setHistory] = useState([]);
@@ -159,7 +162,7 @@ export default function Orders() {
               onClick={() => handleCancel(order.id)}
               disabled={busy}
             >
-              ✕ Reject
+              {t('cancelOrder')}
             </button>
             <button
               className="btn btn-red"
@@ -167,7 +170,7 @@ export default function Orders() {
               onClick={() => handleApprove(order.id)}
               disabled={busy}
             >
-              {busy ? '...' : '✓ Accept'}
+              {busy ? '...' : t('approveOrder')}
             </button>
           </div>
         )}
@@ -195,15 +198,18 @@ export default function Orders() {
     );
   }
 
-  if (loading) return <Spinner fullPage label="Loading orders..." />;
+  if (loading) return <Spinner fullPage label={t('loading')} />;
 
   return (
     <div className="page">
       {/* Header */}
       <div className="header">
         <button className="header-icon">☰</button>
-        <div className="header-title">Orders</div>
-        <NotificationBell to="/cafe-home/notifications" />
+        <div className="header-title">{t('ordersPage')}</div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <NotificationBell to="/cafe-home/notifications" />
+        </div>
       </div>
 
       {/* Status tabs */}
