@@ -13,9 +13,10 @@ import useLanguage from '../../hooks/useLanguage.js';
 
 export default function BottomNav({ variant = 'customer-global', cafeId, active }) {
   const navigate    = useNavigate();
+  const { t } = useLanguage();
   const cartCount   = useStore(s => s.cartCount());
   const currentCafe = useStore(s => s.currentCafe);
-  const { t } = useLanguage();
+  
 
   // Live pending-registration badge — only fetched for cafe-owner
   const [pendingCount, setPendingCount] = useState(0);
