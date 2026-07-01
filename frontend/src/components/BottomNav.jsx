@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
 import telegram from '../telegram.js';
-import { CgHomeAlt } from "react-icons/cg";
+
 
 // NOTE: getRegistrations is imported lazily inside the useEffect
 // below (only when variant === 'cafe-owner') to avoid crashing
@@ -80,7 +80,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     return (
       <div className="bottom-nav">
         <button className={`nav-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => go('/cafe-home')}>
-          <span className="nav-icon" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}><CgHomeAlt /></span>
+          <span className="nav-icon" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>🏠</span>
           <span className="nav-label" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>Home</span>
         </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go('/cafe-home/orders')}>
