@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
 import telegram from '../telegram.js';
-
+import {
+  FiHome,
+  FiFileText,
+  FiGrid,
+  FiCreditCard,
+  FiUser,
+  FiShoppingCart,
+  FiHeart,
+  FiUsers,
+} from 'react-icons/fi';
 
 // NOTE: getRegistrations is imported lazily inside the useEffect
 // below (only when variant === 'cafe-owner') to avoid crashing
@@ -47,28 +56,30 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     else { telegram.alert('Select a cafe first'); go('/'); }
   }
 
+  const ICON_SIZE = 20;
+
   // ── Customer: inside a cafe ──────────────────────────────────
   if (variant === 'customer-cafe') {
     return (
       <div className="bottom-nav">
         <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/menu`)}>
-          <span className="nav-icon">🍽️</span>
+          <span className="nav-icon"><FiGrid size={ICON_SIZE} /></span>
           <span className="nav-label">Menu</span>
         </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/orders`)}>
-          <span className="nav-icon">🧾</span>
+          <span className="nav-icon"><FiFileText size={ICON_SIZE} /></span>
           <span className="nav-label">Orders</span>
         </button>
         <button className="nav-cart-btn" onClick={() => go(`/cafe/${cafeId}/cart`)}>
-          🛒
+          <FiShoppingCart size={ICON_SIZE} />
           {cartCount > 0 && <span className="nav-cart-badge">{cartCount}</span>}
         </button>
         <button className={`nav-item ${active === 'deposits' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/deposit`)}>
-          <span className="nav-icon">👛</span>
+          <span className="nav-icon"><FiCreditCard size={ICON_SIZE} /></span>
           <span className="nav-label">Deposits</span>
         </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/profile`)}>
-          <span className="nav-icon">👤</span>
+          <span className="nav-icon"><FiUser size={ICON_SIZE} /></span>
           <span className="nav-label">Profile</span>
         </button>
       </div>
@@ -80,15 +91,15 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     return (
       <div className="bottom-nav">
         <button className={`nav-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => go('/cafe-home')}>
-          <span className="nav-icon" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>🏠</span>
+          <span className="nav-icon"><FiHome size={ICON_SIZE} color={active === 'dashboard' ? 'var(--red)' : undefined} /></span>
           <span className="nav-label" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>Home</span>
         </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go('/cafe-home/orders')}>
-          <span className="nav-icon" style={active === 'orders' ? { color: 'var(--red)' } : {}}>📋</span>
+          <span className="nav-icon"><FiFileText size={ICON_SIZE} color={active === 'orders' ? 'var(--red)' : undefined} /></span>
           <span className="nav-label" style={active === 'orders' ? { color: 'var(--red)' } : {}}>Orders</span>
         </button>
         <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go('/cafe-home/menu')}>
-          <span className="nav-icon" style={active === 'menu' ? { color: 'var(--red)' } : {}}>▦</span>
+          <span className="nav-icon"><FiGrid size={ICON_SIZE} color={active === 'menu' ? 'var(--red)' : undefined} /></span>
           <span className="nav-label" style={active === 'menu' ? { color: 'var(--red)' } : {}}>Menu</span>
         </button>
         {/* Customers tab — contains Registrations + Customers upper tabs.
@@ -98,7 +109,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
           onClick={() => go('/cafe-home/credit')}
           style={{ position: 'relative' }}
         >
-          <span className="nav-icon" style={active === 'credit' ? { color: 'var(--red)' } : {}}>👥</span>
+          <span className="nav-icon"><FiUsers size={ICON_SIZE} color={active === 'credit' ? 'var(--red)' : undefined} /></span>
           <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>Customers</span>
           {pendingCount > 0 && (
             <span style={{
@@ -113,7 +124,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
           )}
         </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go('/cafe-home/profile')}>
-          <span className="nav-icon" style={active === 'profile' ? { color: 'var(--red)' } : {}}>👤</span>
+          <span className="nav-icon"><FiUser size={ICON_SIZE} color={active === 'profile' ? 'var(--red)' : undefined} /></span>
           <span className="nav-label" style={active === 'profile' ? { color: 'var(--red)' } : {}}>Profile</span>
         </button>
       </div>
@@ -124,19 +135,19 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
   return (
     <div className="bottom-nav">
       <button className={`nav-item ${active === 'home' ? 'active' : ''}`} onClick={() => go('/')}>
-        <span className="nav-icon">🏠</span>
+        <span className="nav-icon"><FiHome size={ICON_SIZE} /></span>
         <span className="nav-label">Home</span>
       </button>
       <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => goCafeScoped('orders')}>
-        <span className="nav-icon">🧾</span>
+        <span className="nav-icon"><FiFileText size={ICON_SIZE} /></span>
         <span className="nav-label">Orders</span>
       </button>
       <button className={`nav-item ${active === 'favorites' ? 'active' : ''}`} onClick={() => go('/favorites')}>
-        <span className="nav-icon">♡</span>
+        <span className="nav-icon"><FiHeart size={ICON_SIZE} /></span>
         <span className="nav-label">Favorites</span>
       </button>
       <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => goCafeScoped('profile')}>
-        <span className="nav-icon">👤</span>
+        <span className="nav-icon"><FiUser size={ICON_SIZE} /></span>
         <span className="nav-label">Profile</span>
       </button>
     </div>
