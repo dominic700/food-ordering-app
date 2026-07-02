@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import telegram from '../telegram.js';
-import { LuStore, LuImage, LuBarChart2, LuPlus } from 'react-icons/lu';
+import { LuStore, LuImage, LuPlus } from 'react-icons/lu';
+import { FiBarChart2 } from 'react-icons/fi';
 
 export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
       {/* Orders Today */}
       <button style={btnStyle('orders')} onClick={() => go('/admin/orders')} >
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          <span style={iconStyle('orders')}><LuBarChart2 size={ICON_SIZE} /></span>
+          <span style={iconStyle('orders')}><FiBarChart2 size={ICON_SIZE} /></span>
           {totalOrdersToday > 0 && (
             <span style={{
               position: 'absolute', top: -4, right: -8,
