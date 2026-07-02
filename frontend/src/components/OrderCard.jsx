@@ -1,4 +1,6 @@
 import StatusBadge from './StatusBadge.jsx';
+import { FiAlertTriangle, FiDollarSign, FiX, FiCheck } from 'react-icons/fi';
+import { LuWallet, LuLandmark } from 'react-icons/lu';
 
 export default function OrderCard({ order, showCustomer, onApprove, onCancel }) {
   const date    = new Date(order.created_at);
@@ -6,13 +8,17 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
   const isCash  = order.payment_method === 'cash';
 
   // Payment label
-  let paymentLabel = '👛 Wallet / Credit';
+  let paymentIcon = <LuWallet size={13} />;
+  let paymentLabel = 'Wallet / Credit';
   if (order.payment_method === 'cash') {
-    paymentLabel = '💵 Cash Payment';
+    paymentIcon = <FiDollarSign size={13} />;
+    paymentLabel = 'Cash Payment';
   } else if (order.payment_method === 'transfer') {
-    paymentLabel = `🏦 Transfer (${order.transfer_provider?.replace('_', ' ') || ''})`;
+    paymentIcon = <LuLandmark size={13} />;
+    paymentLabel = `Transfer (${order.transfer_provider?.replace('_', ' ') || ''})`;
   } else if (parseFloat(order.paid_from_credit) > 0) {
-    paymentLabel = '👛 Wallet + Credit';
+    paymentIcon = <LuWallet size={13} />;
+    paymentLabel = 'Wallet + Credit';
   }
 
   return (
@@ -31,7 +37,8 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
           alignItems: 'center',
           gap: 6,
         }}>
-          ⚠️ CASH ORDER — Collect {parseFloat(order.total).toFixed(2)} ETB from customer!
+          <FiAlertTriangle size={14} />
+          CASH ORDER — Collect {parseFloat(order.total).toFixed(2)} ETB from customer!
         </div>
       )}
 
@@ -75,22 +82,27 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
 
       {/* Footer */}
       <div className="order-footer">
-        <div className="order-payment">{paymentLabel}</div>
+        <div className="order-payment" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {paymentIcon}
+          {paymentLabel}
+        </div>
 
         {/* Approve / Cancel buttons for cafe owner */}
         {order.status === 'pending' && onApprove && onCancel && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               className="btn btn-outline btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
               onClick={() => onCancel(order.id)}
             >
-              ✕ Cancel
+              <FiX size={14} /> Cancel
             </button>
             <button
               className="btn btn-red btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 4 }}
               onClick={() => onApprove(order.id)}
             >
-              {isCash ? '✓ Accept (Cash)' : '✓ Accept'}
+              <FiCheck size={14} /> {isCash ? 'Accept (Cash)' : 'Accept'}
             </button>
           </div>
         )}

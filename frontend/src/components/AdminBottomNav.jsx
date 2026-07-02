@@ -47,7 +47,7 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
       </button>
 
       {/* New Cafe — big red circle center */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
         <button
           onClick={() => go('/admin/create')}
           style={{

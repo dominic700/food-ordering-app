@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications } from '../api/notifications.js';
+import { FiBell } from 'react-icons/fi';
 
 // Shared bell icon button used in every portal's header.
 // Polls unread count every 30s and navigates to the given
@@ -33,10 +34,10 @@ export default function NotificationBell({ to }) {
   return (
     <button
       className="header-icon"
-      style={{ position: 'relative' }}
+      style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={() => navigate(to)}
     >
-      🔔
+      <FiBell size={20} />
       {unread > 0 && (
         <span className="header-badge">{unread > 9 ? '9+' : unread}</span>
       )}
