@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import telegram from '../telegram.js';
+import { LuStore, LuImage, LuBarChart2, LuPlus } from 'react-icons/lu';
 
 export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
   });
 
   const iconStyle = (key) => ({
-    fontSize: 22,
+    display: 'flex',
     color: active === key ? 'var(--red)' : 'var(--text2)',
   });
 
@@ -33,12 +34,14 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
     color: active === key ? 'var(--red)' : 'var(--text2)',
   });
 
+  const ICON_SIZE = 22;
+
   return (
     <div className="bottom-nav" style={{ justifyContent: 'space-around' }}>
 
       {/* Cafes */}
       <button style={btnStyle('cafes')} onClick={() => go('/admin')}>
-        <span style={iconStyle('cafes')}>🏪</span>
+        <span style={iconStyle('cafes')}><LuStore size={ICON_SIZE} /></span>
         <span style={labelStyle('cafes')}>Cafes</span>
       </button>
 
@@ -51,13 +54,13 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
             background: active === 'create' ? '#c0000a' : 'var(--red)',
             borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, color: '#fff',
+            color: '#fff',
             border: 'none', cursor: 'pointer',
             marginTop: -16,
             boxShadow: '0 4px 14px rgba(230,57,70,0.4)',
           }}
         >
-          +
+          <LuPlus size={26} />
         </button>
         <span style={{ fontSize: 11, fontWeight: 600, color: active === 'create' ? 'var(--red)' : 'var(--text2)' }}>
           New Cafe
@@ -66,14 +69,14 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
 
       {/* Promotions */}
       <button style={btnStyle('promotions')} onClick={() => go('/admin/promotions')}>
-        <span style={iconStyle('promotions')}>🖼️</span>
+        <span style={iconStyle('promotions')}><LuImage size={ICON_SIZE} /></span>
         <span style={labelStyle('promotions')}>Promos</span>
       </button>
 
       {/* Orders Today */}
       <button style={btnStyle('orders')} onClick={() => go('/admin/orders')} >
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          <span style={iconStyle('orders')}>📊</span>
+          <span style={iconStyle('orders')}><LuBarChart2 size={ICON_SIZE} /></span>
           {totalOrdersToday > 0 && (
             <span style={{
               position: 'absolute', top: -4, right: -8,
