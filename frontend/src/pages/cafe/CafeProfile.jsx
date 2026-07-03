@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore.js';
-import { getDashboard, getCafeSettings } from '../../api/cafe.js';
+import { getDashboard, getCafeSettings, getFeeStats } from '../../api/cafe.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -19,6 +19,8 @@ export default function CafeProfile() {
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [feeStats, setFeeStats] = useState(null);
+  const [loadingFee, setLoadingFee] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +37,21 @@ export default function CafeProfile() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Separate loader for the period counters (items/revenue/fee since
+  // the last admin reset) — this is read-only on the cafe side, so
+  // there's no "restart" handler here, just a fetch.
+  const loadFeeStats = useCallback(async () => {
+    try {
+      const f = await getFeeStats();
+      setFeeStats(f);
+    } catch (err) {
+      console.error('fee stats error:', err.message);
+    } finally {
+      setLoadingFee(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); loadFeeStats(); }, [load, loadFeeStats]);
 
   function handleLogout() {
     setAuth(null, null);
@@ -144,6 +160,46 @@ export default function CafeProfile() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
             <span style={{ color: 'var(--text2)' }}>Verified deposits received (30d)</span>
             <span style={{ fontWeight: 700 }}>{parseFloat(stats?.deposits_30d || 0).toFixed(2)} ETB</span>
+          </div>
+        </div>
+
+        {/* Current collection period — items / revenue / fee since the
+            last time an admin pressed Restart. No reset button here
+            on purpose: this always resets automatically together with
+            the admin's fee reset, it isn't a separate action. */}
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>📦 Current Collection Period</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
+            Since {feeStats?.period_start ? new Date(feeStats.period_start).toLocaleDateString() : '—'}
+          </div>
+
+          {loadingFee ? (
+            <div className="spinner" />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Items</div>
+                <div style={{ fontSize: 20, fontWeight: 900 }}>
+                  {parseInt(feeStats?.current_period?.total_items || 0).toLocaleString()}
+                </div>
+              </div>
+              <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Revenue</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#22c55e' }}>
+                  {parseFloat(feeStats?.current_period?.total_revenue || 0).toFixed(0)}
+                </div>
+              </div>
+              <div style={{ background: '#fff3e0', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Fee Owed</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>
+                  {parseFloat(feeStats?.current_period?.total_fee || 0).toFixed(0)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, lineHeight: 1.5 }}>
+            These reset automatically when an admin closes the collection period — there's nothing to do here.
           </div>
         </div>
 

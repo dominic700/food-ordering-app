@@ -279,4 +279,68 @@ router.patch('/customers/:pcaId/credit-limit', async (req, res) => {
   }
 });
 
+// ── GET /api/cafe/fee-stats ───────────────────────────────────
+// Read-only counterpart to admin's /api/admin/cafes/:cafeId/fee-stats,
+// scoped to the logged-in cafe owner's own cafe. Shows items sold,
+// revenue, and service fee owed SINCE THE LAST RESET — there is
+// intentionally NO restart/reset endpoint here. The only reset button
+// lives on the admin side (fee-restart); because both queries key off
+// the same `fee_collections` table, an admin reset instantly resets
+// what the cafe owner sees on their Profile page too.
+router.get('/fee-stats', async (req, res) => {
+  try {
+    const { cafe_id } = req.cafeOwner;
+
+    const lastCollection = await pool.query(`
+      SELECT collected_at FROM fee_collections
+      WHERE cafe_id = $1
+      ORDER BY collected_at DESC LIMIT 1
+    `, [cafe_id]);
+
+    const periodStart = lastCollection.rows.length > 0
+      ? lastCollection.rows[0].collected_at
+      : (await pool.query('SELECT created_at FROM cafes WHERE id = $1', [cafe_id])).rows[0]?.created_at;
+
+    // Summed straight from `orders` (one row per order) — not joined
+    // with order_items, which would fan out and multiply
+    // service_fee/total by the number of items in each order.
+    // Only 'approved' orders count, so pending/cancelled orders never
+    // inflate this — cancelled money is never included.
+    const current = await pool.query(`
+      SELECT
+        COALESCE(SUM(o.service_fee), 0) AS total_fee,
+        COALESCE(SUM(o.total), 0)       AS total_revenue,
+        COUNT(o.id)                     AS total_orders,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM order_items oi
+          JOIN orders o2 ON oi.order_id = o2.id
+          WHERE o2.cafe_id = $1 AND o2.status = 'approved' AND o2.created_at > $2
+        ), 0) AS total_items
+      FROM orders o
+      WHERE o.cafe_id = $1
+        AND o.status = 'approved'
+        AND o.created_at > $2
+    `, [cafe_id, periodStart]);
+
+    // Last 30 days of completed collection periods, for reference
+    const history = await pool.query(`
+      SELECT period_start, period_end, total_items, total_fee, total_revenue, collected_at
+      FROM fee_collections
+      WHERE cafe_id = $1
+        AND collected_at >= NOW() - INTERVAL '30 days'
+      ORDER BY collected_at DESC
+    `, [cafe_id]);
+
+    res.json({
+      period_start:   periodStart,
+      current_period: current.rows[0],
+      history:        history.rows,
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

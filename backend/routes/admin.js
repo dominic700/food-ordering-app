@@ -30,6 +30,12 @@ router.use(telegramAuth, adminAuth);
 
 
 // ── GET /api/admin/cafes ──────────────────────────────────────
+// NOTE: all order/customer stats are computed as scalar subqueries,
+// not JOINs + GROUP BY. Joining per_cafe_accounts AND orders to the
+// same cafe row at once creates a cross-product (every pca row paired
+// with every order row), which silently multiplied SUM(o.service_fee)
+// by the number of that cafe's customer accounts — inflating the fee
+// total shown here. Subqueries avoid that entirely.
 router.get('/cafes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -38,21 +44,29 @@ router.get('/cafes', async (req, res) => {
         co.name        AS owner_name,
         co.phone       AS owner_phone,
         co.telegram_id AS owner_telegram_id,
-        COUNT(DISTINCT pca.id) FILTER (WHERE pca.status = 'approved') AS customer_count,
-        COUNT(DISTINCT o.id)   AS total_orders,
-        COUNT(DISTINCT o.id)   FILTER (WHERE o.created_at::date = CURRENT_DATE) AS orders_today,
+        COALESCE((
+          SELECT COUNT(*) FROM per_cafe_accounts pca
+          WHERE pca.cafe_id = c.id AND pca.status = 'approved'
+        ), 0) AS customer_count,
+        COALESCE((
+          SELECT COUNT(*) FROM orders o WHERE o.cafe_id = c.id
+        ), 0) AS total_orders,
+        COALESCE((
+          SELECT COUNT(*) FROM orders o
+          WHERE o.cafe_id = c.id AND o.created_at::date = CURRENT_DATE
+        ), 0) AS orders_today,
         COALESCE((
           SELECT SUM(oi.quantity)
           FROM order_items oi
           JOIN orders o2 ON oi.order_id = o2.id
           WHERE o2.cafe_id = c.id AND o2.status = 'approved'
         ), 0) AS total_items_all_time,
-        COALESCE(SUM(o.service_fee) FILTER (WHERE o.status = 'approved'), 0) AS total_fees
+        COALESCE((
+          SELECT SUM(o3.service_fee) FROM orders o3
+          WHERE o3.cafe_id = c.id AND o3.status = 'approved'
+        ), 0) AS total_fees
       FROM cafes c
-      LEFT JOIN cafe_owners co        ON co.cafe_id = c.id
-      LEFT JOIN per_cafe_accounts pca ON pca.cafe_id = c.id
-      LEFT JOIN orders o              ON o.cafe_id = c.id
-      GROUP BY c.id, co.name, co.phone, co.telegram_id
+      LEFT JOIN cafe_owners co ON co.cafe_id = c.id
       ORDER BY c.created_at DESC
     `);
     res.json(result.rows);
@@ -91,15 +105,20 @@ router.get('/cafes/:cafeId', async (req, res) => {
       ORDER BY o.created_at DESC
     `, [cafeId]);
 
+    // NOTE: computed as independent scalar subqueries rather than
+    // joining per_cafe_accounts + orders to the same cafe row, which
+    // would cross-multiply and inflate total_revenue by the number of
+    // that cafe's customer accounts.
     const stats = await pool.query(`
       SELECT
-        COUNT(DISTINCT pca.id) FILTER (WHERE pca.status = 'approved') AS customer_count,
-        COUNT(DISTINCT o.id)   AS total_orders,
-        COALESCE(SUM(o.total)  FILTER (WHERE o.status = 'approved'), 0) AS total_revenue
-      FROM cafes c
-      LEFT JOIN per_cafe_accounts pca ON pca.cafe_id = c.id
-      LEFT JOIN orders o ON o.cafe_id = c.id
-      WHERE c.id = $1
+        COALESCE((
+          SELECT COUNT(*) FROM per_cafe_accounts
+          WHERE cafe_id = $1 AND status = 'approved'
+        ), 0) AS customer_count,
+        COALESCE((SELECT COUNT(*) FROM orders WHERE cafe_id = $1), 0) AS total_orders,
+        COALESCE((
+          SELECT SUM(total) FROM orders WHERE cafe_id = $1 AND status = 'approved'
+        ), 0) AS total_revenue
     `, [cafeId]);
 
     res.json({ cafe: cafe.rows[0], orders: orders.rows, stats: stats.rows[0] });
@@ -334,14 +353,27 @@ router.get('/cafes/:cafeId/fee-stats', async (req, res) => {
       ? lastCollection.rows[0].collected_at
       : (await pool.query('SELECT created_at FROM cafes WHERE id = $1', [cafeId])).rows[0]?.created_at;
 
-    // Current period: approved orders since last restart
+    // Current period: approved orders since last restart.
+    // NOTE: total_fee/total_revenue are summed straight from `orders`
+    // (one row per order) — NOT joined with order_items, which would
+    // fan out one order into N rows (one per item) and multiply
+    // o.service_fee/o.total by however many distinct items were in
+    // that order. total_items is summed separately via its own
+    // subquery, which is the only place a per-item join is correct.
+    // Only 'approved' orders count — pending/cancelled never touch
+    // the fee or revenue totals.
     const current = await pool.query(`
       SELECT
-        COALESCE(SUM(oi.quantity), 0)      AS total_items,
-        COALESCE(SUM(o.service_fee), 0)    AS total_fee,
-        COUNT(DISTINCT o.id)               AS total_orders
+        COALESCE(SUM(o.service_fee), 0) AS total_fee,
+        COALESCE(SUM(o.total), 0)       AS total_revenue,
+        COUNT(o.id)                     AS total_orders,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM order_items oi
+          JOIN orders o2 ON oi.order_id = o2.id
+          WHERE o2.cafe_id = $1 AND o2.status = 'approved' AND o2.created_at > $2
+        ), 0) AS total_items
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
       WHERE o.cafe_id = $1
         AND o.status = 'approved'
         AND o.created_at > $2
@@ -397,29 +429,42 @@ router.post('/cafes/:cafeId/fee-restart', async (req, res) => {
       ? lastCollection.rows[0].collected_at
       : (await client.query('SELECT created_at FROM cafes WHERE id = $1', [cafeId])).rows[0]?.created_at;
 
-    // Compute current period totals
+    // Compute current period totals (same fix as fee-stats: sum
+    // service_fee/total straight from `orders`, not joined with
+    // order_items, to avoid multiplying them by item count).
     const totals = await client.query(`
       SELECT
-        COALESCE(SUM(oi.quantity), 0)   AS total_items,
-        COALESCE(SUM(o.service_fee), 0) AS total_fee
+        COALESCE(SUM(o.service_fee), 0) AS total_fee,
+        COALESCE(SUM(o.total), 0)       AS total_revenue,
+        COALESCE((
+          SELECT SUM(oi.quantity)
+          FROM order_items oi
+          JOIN orders o2 ON oi.order_id = o2.id
+          WHERE o2.cafe_id = $1 AND o2.status = 'approved' AND o2.created_at > $2
+        ), 0) AS total_items
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
       WHERE o.cafe_id = $1
         AND o.status = 'approved'
         AND o.created_at > $2
     `, [cafeId, periodStart]);
 
-    // Save to history
+    // Save to history — this is the single reset action for the
+    // whole platform. Both this admin fee-stats/history view AND the
+    // cafe owner's own read-only profile counters key off the most
+    // recent row in fee_collections, so pressing Restart here resets
+    // what the cafe owner sees too (there is no separate cafe-side
+    // reset button by design).
     const record = await client.query(`
       INSERT INTO fee_collections
-        (cafe_id, period_start, period_end, total_items, total_fee, collected_by)
-      VALUES ($1, $2, NOW(), $3, $4, $5)
+        (cafe_id, period_start, period_end, total_items, total_fee, total_revenue, collected_by)
+      VALUES ($1, $2, NOW(), $3, $4, $5, $6)
       RETURNING *
     `, [
       cafeId,
       periodStart,
       parseInt(totals.rows[0].total_items),
       parseFloat(totals.rows[0].total_fee),
+      parseFloat(totals.rows[0].total_revenue),
       collected_by || 'admin',
     ]);
 
