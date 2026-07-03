@@ -21,3 +21,10 @@ export const setCustomerCreditLimit = (pcaId, creditLimit) =>
 
 // ── Settings ─────────────────────────────────────────────────
 export const getCafeSettings = () => request('GET', '/cafe/settings');
+
+// ── Fee / revenue counters (read-only) ──────────────────────
+// Mirrors the admin's fee-stats but scoped to this cafe. There is
+// no restart/reset call here on purpose — only the admin can reset
+// (via /admin/cafes/:id/fee-restart), and this simply reflects the
+// current period since that last reset.
+export const getFeeStats = () => request('GET', '/cafe/fee-stats');
