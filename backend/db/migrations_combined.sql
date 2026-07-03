@@ -8,7 +8,7 @@
 --   - a DB that already has all five applied (it's a no-op)
 --
 -- Usage:
---   psql "your_database_url" -f db/migrations_combined.sql
+--   psql "postgresql://food_ordering_qn2a_user:ybT4Z0Ghmw3BM9WWrJRflhpFWgaw69GU@dpg-d8nunlbeo5us738egnqg-a.oregon-postgres.render.com/food_ordering_qn2a" -f db/migrations_combined.sql
 --
 -- (The individual migration_00N_*.sql files are kept as-is for
 -- reference / history — this file just runs the same statements
