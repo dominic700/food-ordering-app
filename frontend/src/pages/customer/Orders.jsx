@@ -6,6 +6,7 @@ import OrderCard from '../../components/OrderCard.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 import useLanguage from '../../hooks/useLanguage.js';
+import { FiClock, FiCheckCircle, FiXCircle, FiShoppingBag, FiClipboard, FiPackage } from 'react-icons/fi';
 
 export default function Orders() {
   const { cafeId } = useParams();
@@ -16,9 +17,9 @@ export default function Orders() {
   const [tab, setTab] = useState('active');
 
   const TABS = [
-    { key: 'active',    label: t('activeTab'),    icon: '🕐', status: 'pending'   },
-    { key: 'completed', label: t('completedTab'), icon: '✅', status: 'approved'  },
-    { key: 'cancelled', label: t('cancelled'),     icon: '✕',  status: 'cancelled' },
+    { key: 'active',    label: t('activeTab'),    icon: FiClock,       status: 'pending'   },
+    { key: 'completed', label: t('completedTab'), icon: FiCheckCircle, status: 'approved'  },
+    { key: 'cancelled', label: t('cancelled'),     icon: FiXCircle,     status: 'cancelled' },
   ];
 
   useEffect(() => {
@@ -50,21 +51,21 @@ export default function Orders() {
       <div className="tabs">
         {TABS.map(tb => (
           <button key={tb.key} className={`tab ${tab === tb.key ? 'active' : ''}`} onClick={() => setTab(tb.key)}>
-            {tb.icon} {tb.label}
+            <tb.icon size={14} style={{ marginRight: 4, verticalAlign: -2 }} /> {tb.label}
           </button>
         ))}
       </div>
 
       <div className="stats-row">
         <div className="stat-card">
-          <div className="stat-icon">🛍️</div>
+          <div className="stat-icon"><FiShoppingBag size={20} /></div>
           <div>
             <div className="stat-value">{activeCount}</div>
             <div className="stat-label">{t('activeOrders')}</div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">📋</div>
+          <div className="stat-icon"><FiClipboard size={20} /></div>
           <div>
             <div className="stat-value">{orders.length}</div>
             <div className="stat-label">{t('totalOrders')}</div>
@@ -75,7 +76,7 @@ export default function Orders() {
       <div style={{ padding: '0 16px' }}>
         {filtered.length === 0 ? (
           <div className="empty">
-            <div className="empty-icon">📦</div>
+            <div className="empty-icon"><FiPackage size={40} /></div>
             <div className="empty-title">{t('noPrefix')} {activeTab.label.toLowerCase()} {t('ordersSuffixWord')}</div>
           </div>
         ) : (
