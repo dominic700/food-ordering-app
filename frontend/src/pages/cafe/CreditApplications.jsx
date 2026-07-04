@@ -338,13 +338,13 @@ export default function CreditApplications() {
               </div>
             </div>
 
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>Deposits</div>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t('navDeposits')}</div>
             {loadingDetail ? <div className="spinner" /> : !detail?.deposits?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>No deposits yet</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0 20px' }}>{t('noDeposits')}</div>
             ) : detail.deposits.map(d => (
               <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>+{parseFloat(d.amount).toFixed(2)} ETB</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>+{parseFloat(d.amount).toFixed(2)} {t('etb')}</div>
                   <div style={{ fontSize: 12, color: 'var(--text2)' }}>{d.payment_method?.replace('_', ' ')}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(d.created_at).toLocaleDateString()}</div>
                 </div>
@@ -352,14 +352,14 @@ export default function CreditApplications() {
               </div>
             ))}
 
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>Order History (Last 30 Days)</div>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t('orderHistoryLast30')}</div>
             {loadingDetail ? null : !detail?.orders?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>No recent orders</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '12px 0' }}>{t('noRecentOrdersShort')}</div>
             ) : detail.orders.map(order => (
               <div key={order.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontWeight: 600, fontSize: 13 }}>#{order.id?.slice(0, 6)}</span>
-                  <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</span>
+                  <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} {t('etb')}</span>
                 </div>
                 {order.items?.map((item, i) => (
                   <div key={i} style={{ fontSize: 12, color: 'var(--text2)' }}>{item.quantity}× {item.name}</div>

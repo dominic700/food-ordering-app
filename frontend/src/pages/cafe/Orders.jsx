@@ -8,23 +8,24 @@ import Spinner from '../../components/Spinner.jsx';
 import useLanguage from '../../hooks/useLanguage.js';
 import telegram from '../../telegram.js';
 
-const TABS = [
-  { key: 'new',       label: 'New',       status: 'pending'   },
-  { key: 'preparing', label: 'Preparing', status: 'pending'   },
-  { key: 'ready',     label: 'Ready',     status: 'approved'  },
-  { key: 'completed', label: 'Completed', status: 'approved'  },
-];
-
-const STATUS_BADGE = {
-  NEW:        { bg: 'var(--red)',    color: '#fff',           label: 'NEW' },
-  PREPARING:  { bg: '#f97316',      color: '#fff',           label: 'PREPARING' },
-  READY:      { bg: '#e8f5e9',      color: '#22c55e',        label: 'READY' },
-  COMPLETED:  { bg: '#e8f5e9',      color: '#22c55e',        label: 'COMPLETED' },
-};
-
 export default function Orders() {
   const navigate = useNavigate();
   const { t }    = useLanguage();
+
+  const TABS = [
+    { key: 'new',       label: t('newTab'),       status: 'pending'   },
+    { key: 'preparing', label: t('preparing'),    status: 'pending'   },
+    { key: 'ready',     label: t('readyTab'),     status: 'approved'  },
+    { key: 'completed', label: t('completedTab'), status: 'approved'  },
+  ];
+
+  const STATUS_BADGE = {
+    NEW:        { bg: 'var(--red)',    color: '#fff',           label: t('newTab').toUpperCase() },
+    PREPARING:  { bg: '#f97316',      color: '#fff',           label: t('preparing').toUpperCase() },
+    READY:      { bg: '#e8f5e9',      color: '#22c55e',        label: t('readyTab').toUpperCase() },
+    COMPLETED:  { bg: '#e8f5e9',      color: '#22c55e',        label: t('completedTab').toUpperCase() },
+  };
+
   const [tab, setTab] = useState('new');
   const [pending, setPending] = useState([]);
   const [history, setHistory] = useState([]);
@@ -109,7 +110,11 @@ export default function Orders() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 16 }}>#{shortId}</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-              {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items · {order.payment_method}
+              {order.items?.reduce((s, i) => s + i.quantity, 0) || 0} {t('items')} · {
+                order.payment_method === 'cash' ? t('cash') :
+                order.payment_method === 'transfer' ? t('transfer') :
+                t('wallet')
+              }
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -124,7 +129,7 @@ export default function Orders() {
             <span>{item.name}</span>
             <div style={{ display: 'flex', gap: 24 }}>
               <span style={{ color: 'var(--text2)', fontWeight: 700 }}>×{item.quantity}</span>
-              <span>{parseFloat(item.item_total).toFixed(0)} ETB</span>
+              <span>{parseFloat(item.item_total).toFixed(0)} {t('etb')}</span>
             </div>
           </div>
         ))}
@@ -132,18 +137,18 @@ export default function Orders() {
         {/* Total + item count summary */}
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
           <div>
-            <span style={{ fontWeight: 600 }}>Total</span>
+            <span style={{ fontWeight: 600 }}>{t('total')}</span>
             <span style={{ fontSize: 12, color: 'var(--text2)', marginLeft: 8 }}>
-              ({order.items?.reduce((s, i) => s + i.quantity, 0) || 0} items)
+              ({order.items?.reduce((s, i) => s + i.quantity, 0) || 0} {t('items')})
             </span>
           </div>
-          <span style={{ fontWeight: 800, color: 'var(--red)', fontSize: 16 }}>{parseFloat(order.total).toFixed(0)} ETB</span>
+          <span style={{ fontWeight: 800, color: 'var(--red)', fontSize: 16 }}>{parseFloat(order.total).toFixed(0)} {t('etb')}</span>
         </div>
 
         {/* Customer */}
         {order.customer_phone && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13, color: 'var(--text2)' }}>
-            <span>Customer</span>
+            <span>{t('customerLabelWord')}</span>
           </div>
         )}
         {order.customer_phone && (
@@ -183,14 +188,14 @@ export default function Orders() {
               onClick={() => handleCancel(order.id)}
               disabled={busy}
             >
-              ✦ Mark Ready
+              {t('markReadyBtn')}
             </button>
             <button
               style={{ flex: 1, padding: '10px', fontSize: 14, background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
               onClick={() => handleApprove(order.id)}
               disabled={busy}
             >
-              {busy ? '...' : '✓ Complete'}
+              {busy ? '...' : t('completeBtn')}
             </button>
           </div>
         )}
@@ -214,20 +219,20 @@ export default function Orders() {
 
       {/* Status tabs */}
       <div style={{ background: '#fff', padding: '12px 16px', display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {TABS.map(t => {
-          const count = t.key === 'new' ? newOrders.length : null;
-          const isActive = tab === t.key;
+        {TABS.map(tb => {
+          const count = tb.key === 'new' ? newOrders.length : null;
+          const isActive = tab === tb.key;
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tb.key}
+              onClick={() => setTab(tb.key)}
               style={{
                 flexShrink: 0,
                 padding: '7px 16px',
                 borderRadius: 20,
                 border: isActive ? 'none' : '1.5px solid var(--border)',
                 background: isActive ? 'var(--red)' : 'transparent',
-                color: isActive ? '#fff' : t.key === 'ready' ? 'var(--blue)' : t.key === 'completed' ? 'var(--green)' : 'var(--text)',
+                color: isActive ? '#fff' : tb.key === 'ready' ? 'var(--blue)' : tb.key === 'completed' ? 'var(--green)' : 'var(--text)',
                 fontFamily: 'var(--font)',
                 fontWeight: 700,
                 fontSize: 13,
@@ -237,7 +242,7 @@ export default function Orders() {
                 gap: 6,
               }}
             >
-              {t.label}
+              {tb.label}
               {count !== null && count > 0 && (
                 <span style={{ background: isActive ? 'rgba(255,255,255,0.3)' : 'var(--red)', color: isActive ? '#fff' : '#fff', borderRadius: 10, fontSize: 11, fontWeight: 800, padding: '0px 6px' }}>
                   {count}
@@ -252,7 +257,7 @@ export default function Orders() {
         {displayed.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">📋</div>
-            <div className="empty-title">No {TABS.find(t => t.key === tab)?.label.toLowerCase()} orders</div>
+            <div className="empty-title">{t('noPrefix')} {TABS.find(tb => tb.key === tab)?.label.toLowerCase()} {t('ordersSuffixWord')}</div>
           </div>
         ) : (
           displayed.map(order => renderOrderCard(order))
