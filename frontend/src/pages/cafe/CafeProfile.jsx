@@ -4,6 +4,8 @@ import useStore from '../../store/useStore.js';
 import { getDashboard, getCafeSettings, getFeeStats } from '../../api/cafe.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 
@@ -15,6 +17,7 @@ export default function CafeProfile() {
   const navigate = useNavigate();
   const account = useStore(s => s.account);
   const setAuth = useStore(s => s.setAuth);
+  const { t }   = useLanguage();
 
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -64,10 +67,10 @@ export default function CafeProfile() {
   if (loading) return <Spinner fullPage label="Loading profile..." />;
 
   const MENU_ITEMS = [
-    { icon: '👤', label: 'Edit Cafe Information', action: () => telegram.alert('Coming soon') },
-    { icon: '🔒', label: 'Change Password',       action: () => telegram.alert('Coming soon') },
-    { icon: '💳', label: 'Payment Information',   action: () => telegram.alert('Coming soon') },
-    { icon: '❓', label: 'Support & Help',         action: () => telegram.alert('Coming soon') },
+    { icon: '👤', label: t('editCafeInfo'), action: () => telegram.alert(t('comingSoon')) },
+    { icon: '🔒', label: t('changePassword'), action: () => telegram.alert(t('comingSoon')) },
+    { icon: '💳', label: t('paymentInfo'),   action: () => telegram.alert(t('comingSoon')) },
+    { icon: '❓', label: t('supportHelp'),    action: () => telegram.alert(t('comingSoon')) },
   ];
 
   return (
@@ -75,8 +78,11 @@ export default function CafeProfile() {
       {/* Header */}
       <div className="header">
         <button className="header-icon">☰</button>
-        <div className="header-title">Profile</div>
-        <NotificationBell to="/cafe-home/notifications" />
+        <div className="header-title">{t('cafeProfile')}</div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <NotificationBell to="/cafe-home/notifications" />
+        </div>
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
@@ -97,7 +103,7 @@ export default function CafeProfile() {
               )}
               <div style={{ marginTop: 6 }}>
                 <span style={{ background: '#e8f5e9', color: '#22c55e', borderRadius: 12, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
-                  Active
+                  {t('activeStatus')}
                 </span>
               </div>
             </div>
@@ -108,28 +114,28 @@ export default function CafeProfile() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div className="card" style={{ padding: 16, textAlign: 'center' }}>
             <div style={{ width: 40, height: 40, background: 'var(--red-light)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, margin: '0 auto 8px' }}>💰</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>Today's Revenue</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>{t('todayRevenue')}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>
-              {parseFloat(stats?.revenue_today || 0).toFixed(0)} ETB
+              {parseFloat(stats?.revenue_today || 0).toFixed(0)} {t('etb')}
             </div>
           </div>
           <div className="card" style={{ padding: 16, textAlign: 'center' }}>
             <div style={{ width: 40, height: 40, background: 'var(--red-light)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, margin: '0 auto 8px' }}>📅</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>Last 30 Days</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>{t('revenue30d')}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red)' }}>
-              {parseFloat(stats?.revenue_30d || 0).toFixed(0)} ETB
+              {parseFloat(stats?.revenue_30d || 0).toFixed(0)} {t('etb')}
             </div>
           </div>
         </div>
 
         {/* Revenue split: Deposited (Wallet/Credit) vs Cash & Transfer */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>📊 Revenue Breakdown (Last 30 Days)</div>
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>{t('revenueBreakdown')}</div>
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text2)' }}>👛 Wallet / Credit (deposited money)</span>
-              <span style={{ fontWeight: 700, color: '#3b82f6' }}>{parseFloat(stats?.wallet_revenue_30d || 0).toFixed(2)} ETB</span>
+              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('walletRevenue')}</span>
+              <span style={{ fontWeight: 700, color: '#3b82f6' }}>{parseFloat(stats?.wallet_revenue_30d || 0).toFixed(2)} {t('etb')}</span>
             </div>
             <div style={{ height: 6, background: 'var(--bg)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
@@ -143,8 +149,8 @@ export default function CafeProfile() {
 
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <span style={{ fontSize: 13, color: 'var(--text2)' }}>💵 Cash & 🏦 Transfer (instant payment)</span>
-              <span style={{ fontWeight: 700, color: '#22c55e' }}>{parseFloat(stats?.instant_revenue_30d || 0).toFixed(2)} ETB</span>
+              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('instantRevenue')}</span>
+              <span style={{ fontWeight: 700, color: '#22c55e' }}>{parseFloat(stats?.instant_revenue_30d || 0).toFixed(2)} {t('etb')}</span>
             </div>
             <div style={{ height: 6, background: 'var(--bg)', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
@@ -158,8 +164,8 @@ export default function CafeProfile() {
 
           <div className="divider" style={{ margin: '14px 0 10px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <span style={{ color: 'var(--text2)' }}>Verified deposits received (30d)</span>
-            <span style={{ fontWeight: 700 }}>{parseFloat(stats?.deposits_30d || 0).toFixed(2)} ETB</span>
+            <span style={{ color: 'var(--text2)' }}>{t('depositsReceived')}</span>
+            <span style={{ fontWeight: 700 }}>{parseFloat(stats?.deposits_30d || 0).toFixed(2)} {t('etb')}</span>
           </div>
         </div>
 
@@ -168,9 +174,9 @@ export default function CafeProfile() {
             on purpose: this always resets automatically together with
             the admin's fee reset, it isn't a separate action. */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>📦 Current Collection Period</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{t('currentPeriod')}</div>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-            Since {feeStats?.period_start ? new Date(feeStats.period_start).toLocaleDateString() : '—'}
+            {t('since')} {feeStats?.period_start ? new Date(feeStats.period_start).toLocaleDateString() : '—'}
           </div>
 
           {loadingFee ? (
@@ -178,19 +184,19 @@ export default function CafeProfile() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Items</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('itemsLabel')}</div>
                 <div style={{ fontSize: 20, fontWeight: 900 }}>
                   {parseInt(feeStats?.current_period?.total_items || 0).toLocaleString()}
                 </div>
               </div>
               <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Revenue</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('revenueLabel')}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#22c55e' }}>
                   {parseFloat(feeStats?.current_period?.total_revenue || 0).toFixed(0)}
                 </div>
               </div>
               <div style={{ background: '#fff3e0', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Fee Owed</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('feeOwed')}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>
                   {parseFloat(feeStats?.current_period?.total_fee || 0).toFixed(0)}
                 </div>
@@ -199,20 +205,20 @@ export default function CafeProfile() {
           )}
 
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, lineHeight: 1.5 }}>
-            These reset automatically when an admin closes the collection period — there's nothing to do here.
+            {t('periodResetNote')}
           </div>
         </div>
 
         {/* Settings info */}
         {settings && (
           <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>⚙️ Cafe Settings</div>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t('cafeSettings')}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-              <span style={{ color: 'var(--text2)' }}>Service Fee</span>
-              <span style={{ fontWeight: 700 }}>{parseFloat(settings.service_fee || 0).toFixed(2)} ETB / item</span>
+              <span style={{ color: 'var(--text2)' }}>{t('serviceFeeLabel')}</span>
+              <span style={{ fontWeight: 700 }}>{parseFloat(settings.service_fee || 0).toFixed(2)} {t('etb')} {t('perItem')}</span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, lineHeight: 1.5 }}>
-              Discounts are set per menu item in Menu Management, not at the cafe level.
+              {t('discountLocationNote')}
             </div>
           </div>
         )}
@@ -228,7 +234,7 @@ export default function CafeProfile() {
           ))}
           <div className="profile-menu-item" onClick={handleLogout} style={{ borderBottom: 'none' }}>
             <div className="profile-menu-icon" style={{ background: '#ffeaea' }}>🚪</div>
-            <div className="profile-menu-label" style={{ color: 'var(--red)' }}>Logout</div>
+            <div className="profile-menu-label" style={{ color: 'var(--red)' }}>{t('logout')}</div>
             <div className="profile-chevron">›</div>
           </div>
         </div>
@@ -238,14 +244,14 @@ export default function CafeProfile() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
             <div style={{ fontSize: 28 }}>🎧</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Need Help?</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{t('needHelp')}</div>
               <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
-                Contact our support team if you need any assistance.
+                {t('supportDesc')}
               </div>
             </div>
           </div>
           <button className="btn btn-red" onClick={() => telegram.alert('Support: support@foodapp.com')}>
-            Contact Support
+            {t('contactSupport')}
           </button>
         </div>
 

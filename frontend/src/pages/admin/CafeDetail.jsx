@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getCafeDetail, toggleCafe, updateCafe, getFeeStats, restartFeeWeek } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import useStore from '../../store/useStore.js';
@@ -12,6 +14,7 @@ export default function CafeDetail() {
   const { cafeId } = useParams();
   const navigate   = useNavigate();
   const account    = useStore(s => s.account);
+  const { t }      = useLanguage();
 
   const [data, setData]             = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -93,7 +96,7 @@ export default function CafeDetail() {
 
   // ── Early returns AFTER all hooks and handlers ───────────────
   if (loading) return <Spinner fullPage label="Loading cafe..." />;
-  if (!data)   return <div className="empty"><div className="empty-title">Cafe not found</div></div>;
+  if (!data)   return <div className="empty"><div className="empty-title">{t('cafeNotFound')}</div></div>;
 
   const { cafe, orders, stats } = data;
 
@@ -102,7 +105,10 @@ export default function CafeDetail() {
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/admin')}>‹</button>
         <div className="header-title">{cafe.name}</div>
-        <NotificationBell to="/admin/notifications" />
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <NotificationBell to="/admin/notifications" />
+        </div>
       </div>
 
       <div style={{ padding: '16px 16px 0', paddingBottom: 100 }}>
@@ -120,20 +126,20 @@ export default function CafeDetail() {
               style={{ width: 'auto', padding: '8px 14px', fontSize: 12, background: cafe.is_active ? '#e8f5e9' : '#ffeaea', color: cafe.is_active ? '#22c55e' : 'var(--red)', border: 'none' }}
               onClick={handleToggle}
             >
-              {cafe.is_active ? 'Active' : 'Inactive'}
+              {cafe.is_active ? t('active') : t('inactive')}
             </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Customers</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t('customersCountLabel')}</div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{stats?.customer_count || 0}</div>
             </div>
             <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Orders</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t('ordersLabel')}</div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{stats?.total_orders || 0}</div>
             </div>
             <div style={{ textAlign: 'center', background: 'var(--bg)', borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text2)' }}>Revenue</div>
+              <div style={{ fontSize: 11, color: 'var(--text2)' }}>{t('revenueLabel')}</div>
               <div style={{ fontWeight: 800, fontSize: 14 }}>{parseFloat(stats?.total_revenue || 0).toFixed(0)}</div>
             </div>
           </div>
@@ -142,7 +148,7 @@ export default function CafeDetail() {
         {/* Owner info */}
         {cafe.owner_name && (
           <div className="card" style={{ marginBottom: 16, padding: 14 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>👤 Cafe Owner</div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('cafeOwnerLabel')}</div>
             <div style={{ fontSize: 14 }}>{cafe.owner_name}</div>
             {cafe.owner_phone && <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {cafe.owner_phone}</div>}
           </div>
@@ -152,9 +158,9 @@ export default function CafeDetail() {
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>📦 This Week's Items & Fee</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{t('weeklyItems')}</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                Since {feeStats?.period_start
+                {t('since')} {feeStats?.period_start
                   ? new Date(feeStats.period_start).toLocaleDateString()
                   : '—'}
               </div>
@@ -165,7 +171,7 @@ export default function CafeDetail() {
               onClick={handleRestart}
               disabled={restarting}
             >
-              {restarting ? '...' : '↺ Restart Week'}
+              {restarting ? '...' : t('restartWeek')}
             </button>
           </div>
 
@@ -174,32 +180,32 @@ export default function CafeDetail() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div style={{ background: '#ffeaea', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Items This Week</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('itemsThisWeek')}</div>
                 <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--red)' }}>
                   {parseInt(feeStats?.current_period?.total_items || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>approved items</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t('approvedItems')}</div>
               </div>
               <div style={{ background: '#fff3e0', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Fee Owed</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('feeOwed')}</div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: '#f97316' }}>
                   {parseFloat(feeStats?.current_period?.total_fee || 0).toFixed(2)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>ETB</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t('etb')}</div>
               </div>
             </div>
           )}
 
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 12, lineHeight: 1.5 }}>
-            Press <strong>Restart Week</strong> after collecting the fee. Saves current count to history and resets to 0.
+            {t('restartDesc')}
           </div>
         </div>
 
         {/* ── Collection History (last 30 days) ───────────────── */}
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>📋 Collection History (30 Days)</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>{t('collectionHistory')}</div>
         {!feeStats?.history?.length ? (
           <div className="card" style={{ padding: 16, textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No collections yet. Press Restart Week after collecting your first fee.</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>{t('noCollections')}</div>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
@@ -214,7 +220,7 @@ export default function CafeDetail() {
                     {new Date(h.period_start).toLocaleDateString()} → {new Date(h.period_end).toLocaleDateString()}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                    {parseInt(h.total_items).toLocaleString()} items · {h.collected_by}
+                    {parseInt(h.total_items).toLocaleString()} {t('items')} · {parseFloat(h.total_revenue || 0).toFixed(0)} {t('etb')} {t('revenueLabel').toLowerCase()} · {h.collected_by}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                     {new Date(h.collected_at).toLocaleString()}
@@ -222,7 +228,7 @@ export default function CafeDetail() {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
                   <div style={{ fontWeight: 800, color: '#f97316', fontSize: 16 }}>
-                    {parseFloat(h.total_fee).toFixed(2)} ETB
+                    {parseFloat(h.total_fee).toFixed(2)} {t('etb')}
                   </div>
                 </div>
               </div>
@@ -233,12 +239,12 @@ export default function CafeDetail() {
         {/* Service fee editor */}
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontWeight: 700 }}>⚙️ Service Fee per Item</div>
+            <div style={{ fontWeight: 700 }}>{t('serviceFeeEdit')}</div>
             <button
               style={{ background: 'none', border: 'none', color: 'var(--red)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
               onClick={() => setEditingFee(f => !f)}
             >
-              {editingFee ? 'Cancel' : 'Edit'}
+              {editingFee ? t('cancel') : t('edit')}
             </button>
           </div>
           {editingFee ? (
@@ -251,22 +257,22 @@ export default function CafeDetail() {
                 onChange={e => setNewFee(e.target.value)}
               />
               <button className="btn btn-red" style={{ width: 'auto', padding: '13px 20px', flexShrink: 0 }} onClick={handleSaveFee} disabled={saving}>
-                {saving ? '...' : 'Save'}
+                {saving ? '...' : t('save')}
               </button>
             </div>
           ) : (
             <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--red)' }}>
-              {parseFloat(cafe.service_fee || 0).toFixed(2)} ETB
-              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)', marginLeft: 8 }}>per item</span>
+              {parseFloat(cafe.service_fee || 0).toFixed(2)} {t('etb')}
+              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)', marginLeft: 8 }}>{t('perItem')}</span>
             </div>
           )}
         </div>
 
         {/* Recent orders */}
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Recent Orders</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>{t('recentOrdersAdmin')}</div>
         {!orders?.length ? (
           <div className="card" style={{ padding: 16, textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: 'var(--text2)' }}>No orders in the last 30 days</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)' }}>{t('noOrdersAdmin')}</div>
           </div>
         ) : (
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
@@ -285,7 +291,7 @@ export default function CafeDetail() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</div>
+                  <div style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} {t('etb')}</div>
                   <StatusBadge status={order.status} />
                 </div>
               </div>

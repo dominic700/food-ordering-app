@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore.js';
 import telegram from '../telegram.js';
+import useLanguage from '../hooks/useLanguage.js';
 import {
   FiHome,
   FiFileText,
@@ -21,6 +22,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
   const navigate    = useNavigate();
   const cartCount   = useStore(s => s.cartCount());
   const currentCafe = useStore(s => s.currentCafe);
+  const { t }       = useLanguage();
 
   // Live pending-registration badge — only fetched for cafe-owner
   const [pendingCount, setPendingCount] = useState(0);
@@ -53,7 +55,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
 
   function goCafeScoped(suffix) {
     if (currentCafe?.id) go(`/cafe/${currentCafe.id}/${suffix}`);
-    else { telegram.alert('Select a cafe first'); go('/'); }
+    else { telegram.alert(t('selectCafeFirst')); go('/'); }
   }
 
   const ICON_SIZE = 20;
@@ -64,11 +66,11 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
       <div className="bottom-nav">
         <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/menu`)}>
           <span className="nav-icon"><FiGrid size={ICON_SIZE} /></span>
-          <span className="nav-label">Menu</span>
+          <span className="nav-label">{t('navMenu')}</span>
         </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/orders`)}>
           <span className="nav-icon"><FiFileText size={ICON_SIZE} /></span>
-          <span className="nav-label">Orders</span>
+          <span className="nav-label">{t('navOrders')}</span>
         </button>
         <button className="nav-cart-btn" onClick={() => go(`/cafe/${cafeId}/cart`)}>
           <FiShoppingCart size={ICON_SIZE} />
@@ -76,11 +78,11 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
         </button>
         <button className={`nav-item ${active === 'deposits' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/deposit`)}>
           <span className="nav-icon"><FiCreditCard size={ICON_SIZE} /></span>
-          <span className="nav-label">Deposits</span>
+          <span className="nav-label">{t('navDeposits')}</span>
         </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go(`/cafe/${cafeId}/profile`)}>
           <span className="nav-icon"><FiUser size={ICON_SIZE} /></span>
-          <span className="nav-label">Profile</span>
+          <span className="nav-label">{t('navProfile')}</span>
         </button>
       </div>
     );
@@ -92,15 +94,15 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
       <div className="bottom-nav">
         <button className={`nav-item ${active === 'dashboard' ? 'active' : ''}`} onClick={() => go('/cafe-home')}>
           <span className="nav-icon"><FiHome size={ICON_SIZE} color={active === 'dashboard' ? 'var(--red)' : undefined} /></span>
-          <span className="nav-label" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>Home</span>
+          <span className="nav-label" style={active === 'dashboard' ? { color: 'var(--red)' } : {}}>{t('navHome')}</span>
         </button>
         <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => go('/cafe-home/orders')}>
           <span className="nav-icon"><FiFileText size={ICON_SIZE} color={active === 'orders' ? 'var(--red)' : undefined} /></span>
-          <span className="nav-label" style={active === 'orders' ? { color: 'var(--red)' } : {}}>Orders</span>
+          <span className="nav-label" style={active === 'orders' ? { color: 'var(--red)' } : {}}>{t('navOrders')}</span>
         </button>
         <button className={`nav-item ${active === 'menu' ? 'active' : ''}`} onClick={() => go('/cafe-home/menu')}>
           <span className="nav-icon"><FiGrid size={ICON_SIZE} color={active === 'menu' ? 'var(--red)' : undefined} /></span>
-          <span className="nav-label" style={active === 'menu' ? { color: 'var(--red)' } : {}}>Menu</span>
+          <span className="nav-label" style={active === 'menu' ? { color: 'var(--red)' } : {}}>{t('navMenu')}</span>
         </button>
         {/* Customers tab — contains Registrations + Customers upper tabs.
             Red badge shows count of pending registration requests. */}
@@ -110,7 +112,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
           style={{ position: 'relative' }}
         >
           <span className="nav-icon"><FiUsers size={ICON_SIZE} color={active === 'credit' ? 'var(--red)' : undefined} /></span>
-          <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>Customers</span>
+          <span className="nav-label" style={active === 'credit' ? { color: 'var(--red)' } : {}}>{t('navCustomers')}</span>
           {pendingCount > 0 && (
             <span style={{
               position: 'absolute', top: 4, right: 8,
@@ -125,7 +127,7 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
         </button>
         <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => go('/cafe-home/profile')}>
           <span className="nav-icon"><FiUser size={ICON_SIZE} color={active === 'profile' ? 'var(--red)' : undefined} /></span>
-          <span className="nav-label" style={active === 'profile' ? { color: 'var(--red)' } : {}}>Profile</span>
+          <span className="nav-label" style={active === 'profile' ? { color: 'var(--red)' } : {}}>{t('navProfile')}</span>
         </button>
       </div>
     );
@@ -136,19 +138,19 @@ export default function BottomNav({ variant = 'customer-global', cafeId, active 
     <div className="bottom-nav">
       <button className={`nav-item ${active === 'home' ? 'active' : ''}`} onClick={() => go('/')}>
         <span className="nav-icon"><FiHome size={ICON_SIZE} /></span>
-        <span className="nav-label">Home</span>
+        <span className="nav-label">{t('navHome')}</span>
       </button>
       <button className={`nav-item ${active === 'orders' ? 'active' : ''}`} onClick={() => goCafeScoped('orders')}>
         <span className="nav-icon"><FiFileText size={ICON_SIZE} /></span>
-        <span className="nav-label">Orders</span>
+        <span className="nav-label">{t('navOrders')}</span>
       </button>
       <button className={`nav-item ${active === 'favorites' ? 'active' : ''}`} onClick={() => go('/favorites')}>
         <span className="nav-icon"><FiHeart size={ICON_SIZE} /></span>
-        <span className="nav-label">Favorites</span>
+        <span className="nav-label">{t('navFavorites')}</span>
       </button>
       <button className={`nav-item ${active === 'profile' ? 'active' : ''}`} onClick={() => goCafeScoped('profile')}>
         <span className="nav-icon"><FiUser size={ICON_SIZE} /></span>
-        <span className="nav-label">Profile</span>
+        <span className="nav-label">{t('navProfile')}</span>
       </button>
     </div>
   );

@@ -4,11 +4,14 @@ import { getPromotions, deletePromotion, uploadPromoImage } from '../../api/admi
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || '';
 
 export default function Promotions() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const fileInputRef = useRef(null);
 
   const [promos, setPromos] = useState([]);
@@ -38,7 +41,7 @@ export default function Promotions() {
 
     // Validate size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      telegram.alert('Image must be smaller than 5MB.');
+      telegram.alert(t('imageSizeLimit'));
       return;
     }
 
@@ -51,7 +54,7 @@ export default function Promotions() {
   }
 
   async function handleUpload() {
-    if (!selectedFile) return telegram.alert('Please select an image first.');
+    if (!selectedFile) return telegram.alert(t('selectImageFirst'));
     setUploading(true);
     try {
       await uploadPromoImage(selectedFile, title);
@@ -84,14 +87,17 @@ export default function Promotions() {
     return `${BACKEND_URL}${url}`;
   }
 
-  if (loading) return <Spinner fullPage label="Loading promotions..." />;
+  if (loading) return <Spinner fullPage label={t('loadingPromotions')} />;
 
   return (
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/admin')}>‹</button>
-        <div className="header-title">Promotions</div>
-        <button className="header-icon" style={{ position: 'relative' }}>🔔</button>
+        <div className="header-title">{t('promotionsTitle')}</div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <LangToggle />
+          <button className="header-icon" style={{ position: 'relative' }}>🔔</button>
+        </div>
       </div>
 
       <div style={{ padding: '16px 16px 100px' }}>
@@ -99,21 +105,21 @@ export default function Promotions() {
         {/* Info card */}
         <div className="card" style={{ marginBottom: 16, padding: 14, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
           <div style={{ fontSize: 13, color: '#1e40af', lineHeight: 1.6 }}>
-            📢 Upload up to 5 promo images. They will slide automatically every 10 seconds on the customer home screen.
+            📢 {t('promoInfoBanner')}
           </div>
         </div>
 
         {/* Current promos */}
         <div className="section-header" style={{ marginBottom: 12 }}>
           <div className="section-title" style={{ fontSize: 16 }}>
-            Promo Images ({promos.length}/5)
+            {t('promoImagesCount')} ({promos.length}/5)
           </div>
           {promos.length < 5 && (
             <button
               className="btn btn-red btn-sm"
               onClick={() => setShowForm(true)}
             >
-              + Add Image
+              {t('addImage')}
             </button>
           )}
         </div>
@@ -121,14 +127,14 @@ export default function Promotions() {
         {promos.length === 0 ? (
           <div className="empty" style={{ padding: '32px 0' }}>
             <div className="empty-icon">🖼️</div>
-            <div className="empty-title">No promo images yet</div>
-            <div className="empty-desc">Add images to show on the customer home screen</div>
+            <div className="empty-title">{t('noPromoImages')}</div>
+            <div className="empty-desc">{t('noPromoImagesDesc')}</div>
             <button
               className="btn btn-red"
               style={{ maxWidth: 200, margin: '16px auto 0' }}
               onClick={() => setShowForm(true)}
             >
-              + Add First Image
+              {t('addFirstImage')}
             </button>
           </div>
         ) : (
@@ -154,7 +160,7 @@ export default function Promotions() {
                   borderRadius: 6, fontSize: 11, fontWeight: 800,
                   padding: '3px 8px',
                 }}>
-                  Slide {i + 1}
+                  {t('slideWord')} {i + 1}
                 </div>
               </div>
 
@@ -163,7 +169,7 @@ export default function Promotions() {
                 <div>
                   <div style={{ fontWeight: 600 }}>{promo.title || `Promo ${i + 1}`}</div>
                   <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                    Added {new Date(promo.created_at).toLocaleDateString()}
+                    {t('addedOnPrefix')} {new Date(promo.created_at).toLocaleDateString()}
                   </div>
                 </div>
                 <button
@@ -171,7 +177,7 @@ export default function Promotions() {
                   style={{ background: '#ffeaea', color: 'var(--red)', border: '1.5px solid var(--red)', width: 'auto' }}
                   onClick={() => handleDelete(promo.id)}
                 >
-                  🗑 Delete
+                  {t('deleteBtn')}
                 </button>
               </div>
             </div>
@@ -186,7 +192,7 @@ export default function Promotions() {
         <div className="overlay" onClick={() => { setShowForm(false); setPreview(null); setSelectedFile(null); setTitle(''); }}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <div className="sheet-title">Add Promo Image</div>
+            <div className="sheet-title">{t('addPromoImage')}</div>
 
             {/* File picker */}
             <div
@@ -213,8 +219,8 @@ export default function Promotions() {
               ) : (
                 <>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
-                  <div style={{ fontWeight: 700, marginBottom: 4 }}>Tap to select image</div>
-                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>JPG, PNG, WebP up to 5MB</div>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('tapToSelectImage')}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('imageFormatHint')}</div>
                 </>
               )}
               <input
@@ -232,12 +238,12 @@ export default function Promotions() {
                 style={{ marginBottom: 14 }}
                 onClick={() => fileInputRef.current?.click()}
               >
-                Change Image
+                {t('changeImage')}
               </button>
             )}
 
             <div className="input-group">
-              <label className="input-label">Promo Title (optional)</label>
+              <label className="input-label">{t('promoTitleOptional')}</label>
               <input
                 className="input"
                 style={{ paddingLeft: 14 }}
@@ -252,7 +258,7 @@ export default function Promotions() {
               onClick={handleUpload}
               disabled={uploading || !selectedFile}
             >
-              {uploading ? 'Uploading...' : '⬆️ Upload Image'}
+              {uploading ? t('uploadingBtn') : t('uploadImageBtn')}
             </button>
           </div>
         </div>

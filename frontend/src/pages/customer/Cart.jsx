@@ -6,17 +6,19 @@ import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-
-const TRANSFER_PROVIDERS = [
-  { value: 'telebirr',      label: '📱 Telebirr' },
-  { value: 'cbe_birr',      label: '🏦 CBE Birr' },
-  { value: 'bank_transfer', label: '🏛️ Bank Transfer' },
-];
+import useLanguage from '../../hooks/useLanguage.js';
 
 export default function Cart() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();
+  const { t }       = useLanguage();
   const { cafeAccount, loading: ctxLoading } = useCafeContext();
+
+  const TRANSFER_PROVIDERS = [
+    { value: 'telebirr',      label: '📱 Telebirr' },
+    { value: 'cbe_birr',      label: '🏦 CBE Birr' },
+    { value: 'bank_transfer', label: `🏛️ ${t('transfer')}` },
+  ];
 
   const cart            = useStore(s => s.cart);
   const addToCart       = useStore(s => s.addToCart);
@@ -57,15 +59,15 @@ export default function Cart() {
     // Wallet requires approved account
     if (paymentMethod === 'wallet') {
       if (!isApproved) {
-        return telegram.alert('You need an approved account to pay with wallet. Please register at this cafe first or choose Cash / Transfer.');
+        return telegram.alert(t('notApproved'));
       }
       if (!canAffordWallet) {
-        return telegram.alert('Insufficient balance and credit. Please deposit money or choose Cash / Transfer payment.');
+        return telegram.alert(t('insufficientFunds'));
       }
     }
 
     if (paymentMethod === 'transfer' && !transactionNumber.trim()) {
-      return telegram.alert('Please enter the transaction number.');
+      return telegram.alert(t('enterTxNumber'));
     }
 
     setPlacing(true);
@@ -94,7 +96,7 @@ export default function Cart() {
     }
   }
 
-  if (ctxLoading) return <Spinner fullPage label="Loading..." />;
+  if (ctxLoading) return <Spinner fullPage label={t('loading')} />;
 
   // ── Success screen ─────────────────────────────────────────
   if (success) {
@@ -102,29 +104,29 @@ export default function Cart() {
     return (
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', textAlign: 'center' }}>
         <div style={{ fontSize: 64, marginBottom: 16 }}>{isCash ? '💵' : '✅'}</div>
-        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Order Placed!</div>
+        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{t('orderPlacedTitle')}</div>
 
         {isCash && (
           <div style={{ background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 12, padding: '14px 20px', margin: '0 24px 16px', fontSize: 14, color: '#c2410c', lineHeight: 1.6 }}>
-            ⚠️ <strong>Cash Payment</strong><br />
-            Prepare <strong>{total.toFixed(2)} ETB</strong> in cash.<br />
-            Pay the cafe when you collect your order.
+            ⚠️ <strong>{t('cashPaymentLabel')}</strong><br />
+            {t('prepareWord')} <strong>{total.toFixed(2)} {t('etb')}</strong> {t('inCashPeriod')}<br />
+            {t('cashPayCollectLine2')}
           </div>
         )}
 
         {!isCash && (
           <div style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 16, padding: '0 32px' }}>
             {paymentMethod === 'transfer'
-              ? 'Transfer received. The cafe will prepare your order.'
-              : 'Your order is waiting for the cafe approval.'}
+              ? t('transferReceivedMsg')
+              : t('orderWaitingMsg')}
           </div>
         )}
 
         <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)', fontSize: 22, fontWeight: 800, marginBottom: 32 }}>
-          {total.toFixed(2)} ETB
+          {total.toFixed(2)} {t('etb')}
         </div>
         <button className="btn btn-red" style={{ maxWidth: 240 }} onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
-          Back to Menu
+          {t('backToMenu')}
         </button>
         <BottomNav variant="customer-cafe" cafeId={cafeId} active="cart" />
       </div>
@@ -137,14 +139,14 @@ export default function Cart() {
       <div className="page">
         <div className="header">
           <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
-          <div className="header-title">My Cart</div>
+          <div className="header-title">{t('myCart')}</div>
           <div style={{ width: 36 }} />
         </div>
         <div className="empty" style={{ marginTop: 60 }}>
           <div className="empty-icon">🛒</div>
-          <div className="empty-title">Your cart is empty</div>
+          <div className="empty-title">{t('cartEmpty')}</div>
           <button className="btn btn-red" style={{ maxWidth: 200, margin: '16px auto 0' }} onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
-            Browse Menu
+            {t('browseMenu')}
           </button>
         </div>
         <BottomNav variant="customer-cafe" cafeId={cafeId} active="cart" />
@@ -157,24 +159,24 @@ export default function Cart() {
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
-        <div className="header-title">My Cart</div>
+        <div className="header-title">{t('myCart')}</div>
         <button className="header-icon" onClick={() => clearCart()}>🗑️</button>
       </div>
 
       <div style={{ padding: '16px 16px 0' }}>
 
         {/* Cart items */}
-        <div className="section-label">Selected Foods</div>
+        <div className="section-label">{t('selectedFoods')}</div>
         <div className="card" style={{ padding: 0, marginBottom: 16 }}>
           {cart.map(item => (
             <div key={item.menu_item_id} className="cart-item">
               <div className="food-thumb" style={{ background: 'var(--bg)' }}>🍽️</div>
               <div className="cart-item-info">
                 <div className="cart-item-name">{item.name}</div>
-                <div className="cart-item-price">{parseFloat(item.price).toFixed(2)} ETB</div>
+                <div className="cart-item-price">{parseFloat(item.price).toFixed(2)} {t('etb')}</div>
                 {parseFloat(item.discount_percent || 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--green)' }}>
-                    {item.discount_percent}% off with wallet
+                    {item.discount_percent}{t('offWithWallet')}
                   </div>
                 )}
                 <div className="qty-ctrl">
@@ -191,32 +193,32 @@ export default function Cart() {
         {/* Price summary */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'var(--text2)' }}>
-            <span>Subtotal</span>
-            <span style={{ fontFamily: 'var(--font-mono)' }}>{subtotal.toFixed(2)} ETB</span>
+            <span>{t('subtotal')}</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>{subtotal.toFixed(2)} {t('etb')}</span>
           </div>
           {feeTotal > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'var(--text2)' }}>
-              <span>Service Fee</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>{feeTotal.toFixed(2)} ETB</span>
+              <span>{t('serviceFee')}</span>
+              <span style={{ fontFamily: 'var(--font-mono)' }}>{feeTotal.toFixed(2)} {t('etb')}</span>
             </div>
           )}
           {discountTotal > 0 && paymentMethod === 'wallet' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'var(--green)' }}>
-              <span>Wallet Discount</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>−{discountTotal.toFixed(2)} ETB</span>
+              <span>{t('walletDiscount')}</span>
+              <span style={{ fontFamily: 'var(--font-mono)' }}>−{discountTotal.toFixed(2)} {t('etb')}</span>
             </div>
           )}
           <div className="divider" />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 17 }}>
-            <span>Total</span>
+            <span>{t('total')}</span>
             <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
-              {total.toFixed(2)} ETB
+              {total.toFixed(2)} {t('etb')}
             </span>
           </div>
         </div>
 
         {/* Payment Method */}
-        <div className="section-label">Payment Method</div>
+        <div className="section-label">{t('paymentMethod')}</div>
 
         {/* Cash — shown first, always available */}
         <div
@@ -227,8 +229,8 @@ export default function Cart() {
             {paymentMethod === 'cash' && <div className="payment-radio-dot" />}
           </div>
           <div className="payment-info">
-            <div className="payment-name">💵 Pay with Cash</div>
-            <div className="payment-desc">Pay directly to the cafe — no registration needed</div>
+            <div className="payment-name">💵 {t('payWithCash')}</div>
+            <div className="payment-desc">{t('payCashDesc')}</div>
           </div>
         </div>
 
@@ -241,8 +243,8 @@ export default function Cart() {
             {paymentMethod === 'transfer' && <div className="payment-radio-dot" />}
           </div>
           <div className="payment-info">
-            <div className="payment-name">🏦 Pay via Transfer</div>
-            <div className="payment-desc">Telebirr, CBE Birr, or Bank — no registration needed</div>
+            <div className="payment-name">🏦 {t('payViaTransfer')}</div>
+            <div className="payment-desc">{t('payTransferDesc')}</div>
           </div>
         </div>
 
@@ -250,7 +252,7 @@ export default function Cart() {
         {paymentMethod === 'transfer' && (
           <div style={{ marginBottom: 10, padding: '12px 14px', background: 'var(--bg)', borderRadius: 10 }}>
             <div className="input-group" style={{ marginBottom: 10 }}>
-              <label className="input-label">Provider</label>
+              <label className="input-label">{t('provider')}</label>
               <select className="input" style={{ paddingLeft: 14 }} value={transferProvider} onChange={e => setTransferProvider(e.target.value)}>
                 {TRANSFER_PROVIDERS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -258,7 +260,7 @@ export default function Cart() {
               </select>
             </div>
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label className="input-label">Transaction Number</label>
+              <label className="input-label">{t('transactionNo')}</label>
               <input
                 className="input"
                 style={{ paddingLeft: 14 }}
@@ -280,16 +282,16 @@ export default function Cart() {
               {paymentMethod === 'wallet' && <div className="payment-radio-dot" />}
             </div>
             <div className="payment-info">
-              <div className="payment-name">👛 Wallet Balance{creditLimit > 0 ? ' & Credit' : ''}</div>
+              <div className="payment-name">👛 {creditLimit > 0 ? t('walletAndCredit') : t('wallet')}</div>
               <div className="payment-desc">
                 {balance < 0
-                  ? `You owe ${Math.abs(balance).toFixed(2)} ETB`
-                  : `Balance: ${balance.toFixed(2)} ETB`}
-                {creditLimit > 0 && ` · Credit limit: ${creditLimit.toFixed(2)} ETB`}
+                  ? `${t('youOwe')} ${Math.abs(balance).toFixed(2)} ${t('etb')}`
+                  : `${t('balance')}: ${balance.toFixed(2)} ${t('etb')}`}
+                {creditLimit > 0 && ` · ${t('creditLimit')}: ${creditLimit.toFixed(2)} ${t('etb')}`}
               </div>
             </div>
             <span className={`badge ${canAffordWallet ? 'badge-approved' : 'badge-cancelled'}`}>
-              {canAffordWallet ? 'OK' : 'Low'}
+              {canAffordWallet ? t('statusOk') : t('statusLow')}
             </span>
           </div>
         )}
@@ -297,14 +299,14 @@ export default function Cart() {
         {/* Not registered info */}
         {!isApproved && (
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8 }}>
-            💡 Register at this cafe to unlock wallet and credit payments with discounts.
+            💡 {t('registerUnlockHint')}
           </div>
         )}
 
         {/* Cash warning */}
         {paymentMethod === 'cash' && (
           <div style={{ background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 10, padding: '12px 14px', marginBottom: 16, fontSize: 13, color: '#c2410c', lineHeight: 1.6 }}>
-            ⚠️ Prepare <strong>{total.toFixed(2)} ETB</strong> in cash. The cafe will be notified to collect payment.
+            ⚠️ {t('prepareWord')} <strong>{total.toFixed(2)} {t('etb')}</strong> {t('cashPrepareCollectSuffix')}
           </div>
         )}
 
@@ -313,29 +315,29 @@ export default function Cart() {
           <div className="card" style={{ marginBottom: 16, fontSize: 13 }}>
             {balance > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ color: 'var(--text2)' }}>From Balance</span>
+                <span style={{ color: 'var(--text2)' }}>{t('fromBalance')}</span>
                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)' }}>
-                  {Math.min(balance, walletTotal).toFixed(2)} ETB
+                  {Math.min(balance, walletTotal).toFixed(2)} {t('etb')}
                 </span>
               </div>
             )}
             {walletTotal > Math.max(balance, 0) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ color: 'var(--text2)' }}>From Credit</span>
+                <span style={{ color: 'var(--text2)' }}>{t('fromCredit')}</span>
                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)' }}>
-                  {(walletTotal - Math.max(balance, 0)).toFixed(2)} ETB
+                  {(walletTotal - Math.max(balance, 0)).toFixed(2)} {t('etb')}
                 </span>
               </div>
             )}
             <div className="divider" style={{ margin: '8px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-              <span>Balance After This Order</span>
+              <span>{t('balanceAfter')}</span>
               <span style={{
                 fontFamily: 'var(--font-mono)',
                 color: (balance - walletTotal) < 0 ? 'var(--red)' : 'var(--green)'
               }}>
-                {(balance - walletTotal) < 0 ? '−' : ''}{Math.abs(balance - walletTotal).toFixed(2)} ETB
-                {(balance - walletTotal) < 0 ? ' (owed)' : ''}
+                {(balance - walletTotal) < 0 ? '−' : ''}{Math.abs(balance - walletTotal).toFixed(2)} {t('etb')}
+                {(balance - walletTotal) < 0 ? ` ${t('owedSuffix')}` : ''}
               </span>
             </div>
           </div>
@@ -343,11 +345,11 @@ export default function Cart() {
 
         {/* Note */}
         <div className="input-group">
-          <label className="input-label">Note (optional)</label>
+          <label className="input-label">{t('note')}</label>
           <input
             className="input"
             style={{ paddingLeft: 14 }}
-            placeholder="Any special requests..."
+            placeholder={t('specialRequestsPlaceholder')}
             value={note}
             onChange={e => setNote(e.target.value)}
           />
@@ -358,7 +360,7 @@ export default function Cart() {
           onClick={handlePlaceOrder}
           disabled={placing}
         >
-          {placing ? 'Placing order...' : `Place Order · ${total.toFixed(2)} ETB`}
+          {placing ? t('placingOrder') : `${t('placeOrder')} · ${total.toFixed(2)} ${t('etb')}`}
         </button>
 
         <div style={{ height: 90 }} />

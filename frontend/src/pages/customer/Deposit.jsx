@@ -7,20 +7,22 @@ import BottomNav from '../../components/BottomNav.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-
-const PAYMENT_METHODS = [
-  { value: 'telebirr',      label: '📱 Telebirr' },
-  { value: 'cbe_birr',      label: '🏦 CBE Birr' },
-  { value: 'bank_transfer', label: '🏛️ Bank Transfer' },
-  { value: 'cash',          label: '💵 Cash' },
-];
+import useLanguage from '../../hooks/useLanguage.js';
 
 const DEPOSIT_ICON = { verified: '⬇️', failed: '✕', pending: '⏳' };
 
 export default function Deposit() {
   const { cafeId } = useParams();
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const { cafeAccount, loading: ctxLoading, refreshAccount } = useCafeContext();
+
+  const PAYMENT_METHODS = [
+    { value: 'telebirr',      label: '📱 Telebirr' },
+    { value: 'cbe_birr',      label: '🏦 CBE Birr' },
+    { value: 'bank_transfer', label: `🏛️ ${t('transfer')}` },
+    { value: 'cash',          label: `💵 ${t('cash')}` },
+  ];
 
   const [deposits, setDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,8 +46,8 @@ export default function Deposit() {
   }
 
   async function handleSubmit() {
-    if (!amount || parseFloat(amount) <= 0) return telegram.alert('Enter a valid amount.');
-    if (!txNumber.trim()) return telegram.alert('Enter the transaction number.');
+    if (!amount || parseFloat(amount) <= 0) return telegram.alert(t('enterValidAmount'));
+    if (!txNumber.trim()) return telegram.alert(t('enterTxNumber'));
 
     setSubmitting(true);
     try {
@@ -53,7 +55,7 @@ export default function Deposit() {
       setAmount('');
       setTxNumber('');
       telegram.haptic('success');
-      telegram.alert('Deposit submitted! It will be verified automatically and added to your balance.');
+      telegram.alert(t('depositSubmittedFull'));
       loadDeposits();
       refreshAccount();
     } catch (err) {
@@ -63,13 +65,13 @@ export default function Deposit() {
     }
   }
 
-  if (ctxLoading || loading) return <Spinner fullPage label="Loading..." />;
+  if (ctxLoading || loading) return <Spinner fullPage label={t('loading')} />;
 
   return (
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/profile`)}>‹</button>
-        <div className="header-title">Deposit</div>
+        <div className="header-title">{t('depositTitle')}</div>
         <button className="header-icon">❓</button>
       </div>
 
@@ -77,9 +79,9 @@ export default function Deposit() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div className="section-label" style={{ marginBottom: 4 }}>Current Balance</div>
+              <div className="section-label" style={{ marginBottom: 4 }}>{t('currentBalance')}</div>
               <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
-                {parseFloat(cafeAccount?.balance || 0).toFixed(2)} <span style={{ fontSize: 14, color: 'var(--text2)' }}>ETB</span>
+                {parseFloat(cafeAccount?.balance || 0).toFixed(2)} <span style={{ fontSize: 14, color: 'var(--text2)' }}>{t('etb')}</span>
               </div>
             </div>
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--red-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
@@ -89,14 +91,14 @@ export default function Deposit() {
         </div>
 
         <div className="input-group">
-          <label className="input-label">Payment Method</label>
+          <label className="input-label">{t('depositMethod')}</label>
           <select className="input" style={{ paddingLeft: 14 }} value={method} onChange={e => setMethod(e.target.value)}>
             {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
         </div>
 
         <div className="input-group">
-          <label className="input-label">Amount (ETB)</label>
+          <label className="input-label">{t('depositAmount')}</label>
           <input
             className="input"
             style={{ paddingLeft: 14, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18 }}
@@ -106,32 +108,32 @@ export default function Deposit() {
         </div>
 
         <div className="input-group">
-          <label className="input-label">Transaction Number</label>
+          <label className="input-label">{t('depositTxNo')}</label>
           <input
             className="input" style={{ paddingLeft: 14 }}
             placeholder="e.g. 1234567890"
             value={txNumber} onChange={e => setTxNumber(e.target.value)}
           />
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-            Enter the transaction ID / reference number from your payment
+            {t('txNumberHint')}
           </div>
         </div>
 
         <button className="btn btn-red" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'Submitting...' : 'Submit Deposit'}
+          {submitting ? t('submitting') : t('depositSubmit')}
         </button>
 
         <div className="divider" style={{ margin: '24px 0 16px' }} />
 
         <div className="section-header">
-          <div className="section-title" style={{ fontSize: 16 }}>Recent Deposits</div>
+          <div className="section-title" style={{ fontSize: 16 }}>{t('recentDeposits')}</div>
         </div>
       </div>
 
       {deposits.length === 0 ? (
         <div className="empty">
           <div className="empty-icon">💳</div>
-          <div className="empty-title">No deposits yet</div>
+          <div className="empty-title">{t('noDeposits')}</div>
         </div>
       ) : (
         <div className="card" style={{ borderRadius: 0, boxShadow: 'none' }}>
@@ -141,7 +143,7 @@ export default function Deposit() {
                 {DEPOSIT_ICON[d.status] || '⏳'}
               </div>
               <div>
-                <div className="deposit-amount">+{parseFloat(d.amount).toFixed(2)} ETB</div>
+                <div className="deposit-amount">+{parseFloat(d.amount).toFixed(2)} {t('etb')}</div>
                 <div className="deposit-sub">{d.payment_method.replace('_', ' ').toUpperCase()} · {d.transaction_number}</div>
               </div>
               <div className="deposit-right">

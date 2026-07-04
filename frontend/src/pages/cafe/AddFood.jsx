@@ -5,6 +5,7 @@ import { getMenuAll, addMenuItem, addCategory, deleteCategory } from '../../api/
 import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
 
 const EMPTY_FORM = { name: '', description: '', price: '', discount_percent: '0', category_id: '', is_available: true };
 
@@ -14,6 +15,7 @@ const EMPTY_FORM = { name: '', description: '', price: '', discount_percent: '0'
 // upper nav, separate from the Edit popup in MenuEditor.jsx.
 export default function AddFood() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const account  = useStore(s => s.account);
   const cafeId   = account?.cafe_id;
 
@@ -42,7 +44,7 @@ export default function AddFood() {
   useEffect(() => { load(); }, [load]);
 
   async function handleSaveFood() {
-    if (!form.name.trim() || !form.price) return telegram.alert('Name and price are required.');
+    if (!form.name.trim() || !form.price) return telegram.alert(t('nameAndPriceRequired'));
     setSaving(true);
     try {
       await addMenuItem({
@@ -54,7 +56,7 @@ export default function AddFood() {
         is_available:     form.is_available,
       });
       telegram.haptic('success');
-      telegram.alert(`"${form.name}" added to the menu!`);
+      telegram.alert(`"${form.name}" ${t('addedToMenuSuffix')}`);
       setForm(EMPTY_FORM);
       navigate('/cafe-home/menu');
     } catch (err) {
@@ -89,24 +91,24 @@ export default function AddFood() {
     }
   }
 
-  if (loading) return <Spinner fullPage label="Loading..." />;
+  if (loading) return <Spinner fullPage label={t('loading')} />;
 
   return (
     <div className="page">
       {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home/menu')}>‹</button>
-        <div className="header-title">Add to Menu</div>
+        <div className="header-title">{t('addToMenuTitle')}</div>
         <NotificationBell to="/cafe-home/notifications" />
       </div>
 
       {/* Upper sliding tab nav: Add Food / Add Category */}
       <div className="upper-tabs">
         <button className={`upper-tab ${tab === 'food' ? 'active' : ''}`} onClick={() => setTab('food')}>
-          🍽️ Add Food
+          {t('addFood')}
         </button>
         <button className={`upper-tab ${tab === 'category' ? 'active' : ''}`} onClick={() => setTab('category')}>
-          📁 Add Category
+          {t('addCategory')}
         </button>
       </div>
 
@@ -115,7 +117,7 @@ export default function AddFood() {
         {tab === 'food' && (
           <>
             <div className="input-group">
-              <label className="input-label">Item Name *</label>
+              <label className="input-label">{t('itemName')}</label>
               <input
                 className="input" style={{ paddingLeft: 14 }}
                 placeholder="e.g. Burger Classic"
@@ -125,7 +127,7 @@ export default function AddFood() {
             </div>
 
             <div className="input-group">
-              <label className="input-label">Description</label>
+              <label className="input-label">{t('description')}</label>
               <input
                 className="input" style={{ paddingLeft: 14 }}
                 placeholder="Ingredients or short description"
@@ -136,7 +138,7 @@ export default function AddFood() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Base Price (ETB) *</label>
+                <label className="input-label">{t('basePrice')}</label>
                 <input
                   className="input" style={{ paddingLeft: 14, fontWeight: 700 }}
                   type="number" min="0" placeholder="0.00"
@@ -145,7 +147,7 @@ export default function AddFood() {
                 />
               </div>
               <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Discount %</label>
+                <label className="input-label">{t('discountPct')}</label>
                 <input
                   className="input" style={{ paddingLeft: 14, fontWeight: 700 }}
                   type="number" min="0" max="100" placeholder="0"
@@ -155,28 +157,28 @@ export default function AddFood() {
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: -8, marginBottom: 14 }}>
-              This discount only applies when customers pay with wallet balance or credit. Cash and Transfer always pay full price.
+              {t('discountFullNote')}
             </div>
 
             <div className="input-group">
-              <label className="input-label">Category</label>
+              <label className="input-label">{t('category')}</label>
               <select
                 className="input" style={{ paddingLeft: 14 }}
                 value={form.category_id}
                 onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}
               >
-                <option value="">No category</option>
+                <option value="">{t('noCategory')}</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               {categories.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
-                  No categories yet — switch to "Add Category" tab to create one.
+                  {t('noCategoriesSwitchHint')}
                 </div>
               )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <label style={{ fontWeight: 600, fontSize: 14 }}>Available immediately</label>
+              <label style={{ fontWeight: 600, fontSize: 14 }}>{t('availableNow')}</label>
               <input
                 type="checkbox"
                 checked={form.is_available}
@@ -186,7 +188,7 @@ export default function AddFood() {
             </div>
 
             <button className="btn btn-red" onClick={handleSaveFood} disabled={saving}>
-              {saving ? 'Adding...' : '⊕ Add to Menu'}
+              {saving ? t('adding') : t('addToMenu')}
             </button>
           </>
         )}
@@ -194,25 +196,25 @@ export default function AddFood() {
         {tab === 'category' && (
           <>
             <div className="input-group">
-              <label className="input-label">Category Name</label>
+              <label className="input-label">{t('categoryName')}</label>
               <input
                 className="input" style={{ paddingLeft: 14 }}
-                placeholder="e.g. Burgers, Drinks, Desserts..."
+                placeholder={t('categoryPlaceholder')}
                 value={newCatName}
                 onChange={e => setNewCatName(e.target.value)}
               />
             </div>
             <button className="btn btn-red" onClick={handleAddCategory} disabled={savingCat} style={{ marginBottom: 24 }}>
-              {savingCat ? 'Adding...' : '⊕ Add Category'}
+              {savingCat ? t('adding') : t('addCategoryBtn')}
             </button>
 
             <div className="section-label" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: 'var(--text2)' }}>
-              Existing Categories
+              {t('existingCategories')}
             </div>
             {categories.length === 0 ? (
               <div className="empty" style={{ padding: '24px 0' }}>
                 <div className="empty-icon">📁</div>
-                <div className="empty-title">No categories yet</div>
+                <div className="empty-title">{t('noCategories')}</div>
               </div>
             ) : (
               <div className="card" style={{ padding: 0 }}>
@@ -230,7 +232,7 @@ export default function AddFood() {
                       style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                       onClick={() => handleDeleteCategory(c.id)}
                     >
-                      Delete
+                      {t('delete')}
                     </button>
                   </div>
                 ))}

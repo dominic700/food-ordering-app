@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getNotifications, markAsRead, markAllAsRead } from '../../api/notifications.js';
 import Spinner from '../../components/Spinner.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 
 const TYPE_ICON = {
   new_order:              '🛍️',
@@ -17,11 +18,11 @@ const TYPE_ICON = {
   cafe_created:           '☕',
 };
 
-function timeAgo(dateStr) {
+function timeAgo(dateStr, t) {
   const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-  if (diff < 60)    return 'just now';
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60)    return t('justNow');
+  if (diff < 3600)  return `${Math.floor(diff / 60)}${t('minAgoSuffix')}`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}${t('hAgoSuffix')}`;
   return new Date(dateStr).toLocaleDateString();
 }
 
@@ -33,6 +34,7 @@ function timeAgo(dateStr) {
 export default function Notifications() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t }     = useLanguage();
 
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,13 +80,13 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  if (loading) return <Spinner fullPage label="Loading notifications..." />;
+  if (loading) return <Spinner fullPage label={t('loadingNotifications')} />;
 
   return (
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={backHome}>‹</button>
-        <div className="header-title">Notifications</div>
+        <div className="header-title">{t('notifications')}</div>
         <div style={{ width: 36 }} />
       </div>
 
@@ -94,7 +96,7 @@ export default function Notifications() {
             onClick={handleMarkAll}
             style={{ background: 'none', border: 'none', color: 'var(--red)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
           >
-            Mark all as read
+            {t('markAllRead')}
           </button>
         </div>
       )}
@@ -102,8 +104,8 @@ export default function Notifications() {
       {notifications.length === 0 ? (
         <div className="empty" style={{ marginTop: 40 }}>
           <div className="empty-icon">🔔</div>
-          <div className="empty-title">No notifications yet</div>
-          <div className="empty-desc">You'll see updates about orders, registrations, and more here.</div>
+          <div className="empty-title">{t('noNotifications')}</div>
+          <div className="empty-desc">{t('noNotificationsDesc')}</div>
         </div>
       ) : (
         <div style={{ marginTop: 8 }}>
@@ -117,7 +119,7 @@ export default function Notifications() {
               <div className="notification-content">
                 <div className="notification-title">{n.title}</div>
                 {n.body && <div className="notification-body">{n.body}</div>}
-                <div className="notification-time">{timeAgo(n.created_at)}</div>
+                <div className="notification-time">{timeAgo(n.created_at, t)}</div>
               </div>
               {!n.is_read && <div className="notification-dot" />}
             </div>

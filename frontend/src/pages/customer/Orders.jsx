@@ -5,19 +5,21 @@ import BottomNav from '../../components/BottomNav.jsx';
 import OrderCard from '../../components/OrderCard.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
-
-const TABS = [
-  { key: 'active',    label: 'Active',    icon: '🕐', status: 'pending'   },
-  { key: 'completed', label: 'Completed', icon: '✅', status: 'approved'  },
-  { key: 'cancelled', label: 'Cancelled', icon: '✕',  status: 'cancelled' },
-];
+import useLanguage from '../../hooks/useLanguage.js';
 
 export default function Orders() {
   const { cafeId } = useParams();
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('active');
+
+  const TABS = [
+    { key: 'active',    label: t('activeTab'),    icon: '🕐', status: 'pending'   },
+    { key: 'completed', label: t('completedTab'), icon: '✅', status: 'approved'  },
+    { key: 'cancelled', label: t('cancelled'),     icon: '✕',  status: 'cancelled' },
+  ];
 
   useEffect(() => {
     telegram.showBackButton(() => navigate(`/cafe/${cafeId}/menu`));
@@ -31,24 +33,24 @@ export default function Orders() {
       .finally(() => setLoading(false));
   }, [cafeId]);
 
-  const activeTab = TABS.find(t => t.key === tab);
+  const activeTab = TABS.find(tb => tb.key === tab);
   const filtered = orders.filter(o => o.status === activeTab.status);
   const activeCount = orders.filter(o => o.status === 'pending').length;
 
-  if (loading) return <Spinner fullPage label="Loading orders..." />;
+  if (loading) return <Spinner fullPage label={t('loadingOrders')} />;
 
   return (
     <div className="page">
       <div className="header">
         <button className="header-icon" onClick={() => navigate(`/cafe/${cafeId}/menu`)}>‹</button>
-        <div className="header-title">Orders</div>
+        <div className="header-title">{t('ordersPage')}</div>
         <div style={{ width: 36 }} />
       </div>
 
       <div className="tabs">
-        {TABS.map(t => (
-          <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
-            {t.icon} {t.label}
+        {TABS.map(tb => (
+          <button key={tb.key} className={`tab ${tab === tb.key ? 'active' : ''}`} onClick={() => setTab(tb.key)}>
+            {tb.icon} {tb.label}
           </button>
         ))}
       </div>
@@ -58,14 +60,14 @@ export default function Orders() {
           <div className="stat-icon">🛍️</div>
           <div>
             <div className="stat-value">{activeCount}</div>
-            <div className="stat-label">Active Orders</div>
+            <div className="stat-label">{t('activeOrders')}</div>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">📋</div>
           <div>
             <div className="stat-value">{orders.length}</div>
-            <div className="stat-label">Total Orders</div>
+            <div className="stat-label">{t('totalOrders')}</div>
           </div>
         </div>
       </div>
@@ -74,7 +76,7 @@ export default function Orders() {
         {filtered.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">📦</div>
-            <div className="empty-title">No {activeTab.label.toLowerCase()} orders</div>
+            <div className="empty-title">{t('noPrefix')} {activeTab.label.toLowerCase()} {t('ordersSuffixWord')}</div>
           </div>
         ) : (
           filtered.map(order => <OrderCard key={order.id} order={order} />)

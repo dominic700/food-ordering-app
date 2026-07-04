@@ -6,14 +6,22 @@ import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
 
 // ── Edit Item popup form state ──────────────────────────────────
 const EMPTY_EDIT_FORM = { name: '', description: '', price: '', discount_percent: '0', category_id: '', is_available: true };
 
 export default function MenuEditor() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const account  = useStore(s => s.account);
   const cafeId   = account?.cafe_id;
+
+  const FILTER_LABELS = {
+    all: t('allItems'),
+    available: t('available'),
+    unavailable: t('unavailable'),
+  };
 
   const [menu, setMenu]       = useState({ categories: [], items: [], service_fee: 0 });
   const [filter, setFilter]   = useState('all'); // 'all' | 'available' | 'unavailable'
@@ -57,7 +65,7 @@ export default function MenuEditor() {
   }
 
   async function handleSave() {
-    if (!form.name.trim() || !form.price) return telegram.alert('Name and price are required.');
+    if (!form.name.trim() || !form.price) return telegram.alert(t('nameAndPriceRequired'));
     setSaving(true);
     try {
       await updateMenuItem(editingItem.id, {
@@ -104,14 +112,14 @@ export default function MenuEditor() {
     return true;
   });
 
-  if (loading) return <Spinner fullPage label="Loading menu..." />;
+  if (loading) return <Spinner fullPage label={t('loadingMenu')} />;
 
   return (
     <div className="page" style={{ paddingBottom: 120 }}>
       {/* Header */}
       <div className="header">
         <button className="header-icon">☰</button>
-        <div className="header-title">Menu Management</div>
+        <div className="header-title">{t('menuManagement')}</div>
         <NotificationBell to="/cafe-home/notifications" />
       </div>
 
@@ -123,7 +131,7 @@ export default function MenuEditor() {
             className={`upper-tab ${filter === f ? 'active' : ''}`}
             onClick={() => setFilter(f)}
           >
-            {f === 'all' ? 'All Items' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {FILTER_LABELS[f]}
           </button>
         ))}
         <button
@@ -131,7 +139,7 @@ export default function MenuEditor() {
           style={{ background: 'var(--red)', color: '#fff', borderColor: 'var(--red)' }}
           onClick={() => navigate('/cafe-home/menu/add')}
         >
-          + Add New Food
+          {t('addNewFood')}
         </button>
       </div>
 
@@ -140,8 +148,8 @@ export default function MenuEditor() {
         {filtered.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">🍽️</div>
-            <div className="empty-title">No items yet</div>
-            <div className="empty-desc">Tap "Add New Food" above to get started</div>
+            <div className="empty-title">{t('noMenuItems')}</div>
+            <div className="empty-desc">{t('noMenuDesc')}</div>
           </div>
         ) : (
           filtered.map(item => (
@@ -161,13 +169,13 @@ export default function MenuEditor() {
                       color: item.is_available ? '#22c55e' : 'var(--red)',
                       borderRadius: 12, fontSize: 11, fontWeight: 700, padding: '2px 8px', flexShrink: 0, marginLeft: 8
                     }}>
-                      {item.is_available ? 'Available' : 'Unavailable'}
+                      {item.is_available ? t('available') : t('unavailable')}
                     </span>
                   </div>
                   <div style={{ color: 'var(--red)', fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
-                    {parseFloat(item.price).toFixed(0)} ETB
+                    {parseFloat(item.price).toFixed(0)} {t('etb')}
                     {parseFloat(item.discount_percent || 0) > 0 && (
-                      <span style={{ fontSize: 11, color: '#22c55e', marginLeft: 6 }}>({item.discount_percent}% off)</span>
+                      <span style={{ fontSize: 11, color: '#22c55e', marginLeft: 6 }}>({item.discount_percent}% {t('percentOff')})</span>
                     )}
                   </div>
                   {item.description && <div style={{ fontSize: 12, color: 'var(--text2)' }}>{item.description}</div>}
@@ -180,10 +188,10 @@ export default function MenuEditor() {
                   style={{ flex: 1, background: item.is_available ? '#fff3e0' : '#e8f5e9', color: item.is_available ? '#f97316' : '#22c55e', border: '1.5px solid currentColor' }}
                   onClick={() => handleToggleAvailable(item)}
                 >
-                  {item.is_available ? 'Mark Unavailable' : 'Mark Available'}
+                  {item.is_available ? t('markUnavailable') : t('markAvailable')}
                 </button>
                 <button className="btn btn-sm" style={{ flex: 1, background: '#ffeaea', color: 'var(--red)', border: '1.5px solid var(--red)' }} onClick={() => handleDelete(item)}>
-                  Delete
+                  {t('delete')}
                 </button>
               </div>
             </div>
@@ -198,51 +206,51 @@ export default function MenuEditor() {
         <div className="overlay" onClick={closeEdit}>
           <div className="sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '92vh' }}>
             <div className="sheet-handle" />
-            <div className="sheet-title">Edit Item</div>
+            <div className="sheet-title">{t('editItem')}</div>
 
             <div className="input-group">
-              <label className="input-label">Item Name *</label>
+              <label className="input-label">{t('itemName')}</label>
               <input className="input" style={{ paddingLeft: 14 }} placeholder="e.g. Burger Classic" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
 
             <div className="input-group">
-              <label className="input-label">Description</label>
+              <label className="input-label">{t('description')}</label>
               <input className="input" style={{ paddingLeft: 14 }} placeholder="Ingredients or short description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Base Price (ETB) *</label>
+                <label className="input-label">{t('basePrice')}</label>
                 <input className="input" style={{ paddingLeft: 14, fontWeight: 700 }} type="number" min="0" placeholder="0.00" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
               </div>
               <div className="input-group" style={{ marginBottom: 0 }}>
-                <label className="input-label">Discount %</label>
+                <label className="input-label">{t('discountPct')}</label>
                 <input className="input" style={{ paddingLeft: 14, fontWeight: 700 }} type="number" min="0" max="100" placeholder="0" value={form.discount_percent} onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))} />
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: -8, marginBottom: 14 }}>
-              This discount only applies when customers pay with wallet balance or credit.
+              {t('discountNote')}
             </div>
 
             <div className="input-group">
-              <label className="input-label">Category</label>
+              <label className="input-label">{t('category')}</label>
               <select className="input" style={{ paddingLeft: 14 }} value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
-                <option value="">No category</option>
+                <option value="">{t('noCategory')}</option>
                 {menu.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <label style={{ fontWeight: 600, fontSize: 14 }}>Available</label>
+              <label style={{ fontWeight: 600, fontSize: 14 }}>{t('availableLabel')}</label>
               <input type="checkbox" checked={form.is_available} onChange={e => setForm(f => ({ ...f, is_available: e.target.checked }))} style={{ width: 18, height: 18, accentColor: 'var(--red)' }} />
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => handleDelete(editingItem)}>
-                Delete
+                {t('delete')}
               </button>
               <button className="btn btn-red" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t('saving') : t('saveChanges')}
               </button>
             </div>
           </div>

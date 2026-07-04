@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { createCafe } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import telegram from '../../telegram.js';
+import LangToggle from '../../components/LangToggle.jsx';
+import useLanguage from '../../hooks/useLanguage.js';
 
 const EMPTY = {
   name: '',
@@ -17,6 +19,7 @@ const EMPTY = {
 
 export default function CreateCafe() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const [form, setForm] = useState(EMPTY);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -26,9 +29,9 @@ export default function CreateCafe() {
   }
 
   async function handleCreate() {
-    if (!form.name.trim())              return telegram.alert('Cafe name is required.');
-    if (!form.owner_telegram_id.trim()) return telegram.alert('Owner Telegram ID is required.');
-    if (!form.service_fee)              return telegram.alert('Service fee is required.');
+    if (!form.name.trim())              return telegram.alert(t('cafeNameRequired'));
+    if (!form.owner_telegram_id.trim()) return telegram.alert(t('ownerTgIdRequired'));
+    if (!form.service_fee)              return telegram.alert(t('serviceFeeRequired'));
 
     setSaving(true);
     try {
@@ -43,7 +46,7 @@ export default function CreateCafe() {
         owner_phone:       form.owner_phone.trim(),
       });
       telegram.haptic('success');
-      telegram.alert('Cafe created successfully!');
+      telegram.alert(t('cafeCreatedSuccess'));
       navigate('/admin');
     } catch (err) {
       telegram.alert(err.message);
@@ -61,33 +64,33 @@ export default function CreateCafe() {
       {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/admin')}>‹</button>
-        <div className="header-title">Create New Cafe</div>
-        <button className="header-icon">🔔</button>
+        <div className="header-title">{t('createNewCafe')}</div>
+        <LangToggle />
       </div>
 
       <div style={{ padding: '20px 16px 120px' }}>
 
         {/* Cafe Name */}
         <div className="input-group">
-          <label className="input-label">Cafe Name</label>
+          <label className="input-label">{t('cafeNameLabel')}</label>
           <div className="input-wrap">
             <span className="input-icon">🏪</span>
-            <input className="input" placeholder="Enter cafe name" value={form.name} onChange={e => set('name', e.target.value)} />
+            <input className="input" placeholder={t('cafeNamePlaceholder')} value={form.name} onChange={e => set('name', e.target.value)} />
           </div>
         </div>
 
         {/* Location */}
         <div className="input-group">
-          <label className="input-label">Location</label>
+          <label className="input-label">{t('locationLabel')}</label>
           <div className="input-wrap">
             <span className="input-icon">📍</span>
-            <input className="input" placeholder="Enter cafe location" value={form.address} onChange={e => set('address', e.target.value)} />
+            <input className="input" placeholder={t('locationPlaceholder')} value={form.address} onChange={e => set('address', e.target.value)} />
           </div>
         </div>
 
         {/* Phone */}
         <div className="input-group">
-          <label className="input-label">Cafe Phone (optional)</label>
+          <label className="input-label">{t('cafePhoneOptional')}</label>
           <div className="input-wrap">
             <span className="input-icon">📞</span>
             <input className="input" placeholder="+251 9XX XXX XXX" value={form.phone} onChange={e => set('phone', e.target.value)} />
@@ -96,7 +99,7 @@ export default function CreateCafe() {
 
         {/* Service Fee */}
         <div className="input-group">
-          <label className="input-label">Service Fee (ETB per item)</label>
+          <label className="input-label">{t('serviceFeePerItem')}</label>
           <div className="input-wrap">
             <span className="input-icon">💰</span>
             <input
@@ -108,48 +111,48 @@ export default function CreateCafe() {
             />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-            This flat fee is added to each menu item's price per unit ordered.
+            {t('serviceFeeHint')}
           </div>
         </div>
 
         {/* Description */}
         <div className="input-group">
-          <label className="input-label">Description (optional)</label>
+          <label className="input-label">{t('descriptionOptional')}</label>
           <div className="input-wrap">
             <span className="input-icon">📝</span>
-            <input className="input" placeholder="Short description of the cafe" value={form.description} onChange={e => set('description', e.target.value)} />
+            <input className="input" placeholder={t('descriptionPlaceholder')} value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
         </div>
 
         <div className="divider" style={{ margin: '20px 0' }} />
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>👤 Cafe Owner Details</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>{t('cafeOwnerDetails')}</div>
 
         {/* Owner Telegram ID (Username field in design) */}
         <div className="input-group">
-          <label className="input-label">Owner Telegram ID</label>
+          <label className="input-label">{t('ownerTelegramId')}</label>
           <div className="input-wrap">
             <span className="input-icon">👤</span>
             <input
               className="input"
-              placeholder="Enter owner's Telegram user ID"
+              placeholder={t('ownerTelegramIdPlaceholder')}
               value={form.owner_telegram_id}
               onChange={e => set('owner_telegram_id', e.target.value)}
               type="number"
             />
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-            The owner's Telegram numeric ID. They must start the bot first.
+            {t('ownerTelegramIdHint')}
           </div>
         </div>
 
         {/* Owner Name (Password field in design — repurposed) */}
         <div className="input-group">
-          <label className="input-label">Owner Name</label>
+          <label className="input-label">{t('ownerNameLabel')}</label>
           <div className="input-wrap">
             <span className="input-icon">🏷️</span>
             <input
               className="input"
-              placeholder="Enter owner's full name"
+              placeholder={t('ownerNamePlaceholder')}
               value={form.owner_name}
               onChange={e => set('owner_name', e.target.value)}
             />
@@ -158,7 +161,7 @@ export default function CreateCafe() {
 
         {/* Owner Phone */}
         <div className="input-group">
-          <label className="input-label">Owner Phone</label>
+          <label className="input-label">{t('ownerPhoneLabel')}</label>
           <div className="input-wrap">
             <span className="input-icon">📞</span>
             <input
@@ -174,7 +177,7 @@ export default function CreateCafe() {
 
         {/* Cafe Picture — URL input (no real upload) */}
         <div className="input-group">
-          <label className="input-label">Cafe Picture URL (optional)</label>
+          <label className="input-label">{t('cafePictureOptional')}</label>
           <div
             style={{
               border: '2px dashed var(--border)', borderRadius: 12,
@@ -183,13 +186,13 @@ export default function CreateCafe() {
             }}
           >
             <div style={{ fontSize: 28, color: 'var(--red)', marginBottom: 8 }}>☁️</div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Upload Cafe Picture</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>JPG, PNG up to 5MB</div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('uploadCafePicture')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('imageFormatHintPng')}</div>
           </div>
           <input
             className="input"
             style={{ paddingLeft: 14 }}
-            placeholder="Or paste image URL here..."
+            placeholder={t('pasteImageUrl')}
             value={form.logo_url || ''}
             onChange={e => set('logo_url', e.target.value)}
           />
@@ -198,7 +201,7 @@ export default function CreateCafe() {
         {/* Preview */}
         {form.name && (
           <>
-            <div style={{ fontWeight: 700, marginBottom: 12 }}>Preview</div>
+            <div style={{ fontWeight: 700, marginBottom: 12 }}>{t('previewLabel')}</div>
             <div style={{
               borderRadius: 16, overflow: 'hidden', marginBottom: 20,
               border: '1.5px solid var(--border)',
@@ -217,7 +220,7 @@ export default function CreateCafe() {
               <div style={{ padding: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{form.name}</div>
                 {form.address && <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📍 {form.address}</div>}
-                {form.service_fee && <div style={{ fontSize: 13, color: 'var(--red)', marginTop: 4 }}>Service fee: {form.service_fee} ETB/item</div>}
+                {form.service_fee && <div style={{ fontSize: 13, color: 'var(--red)', marginTop: 4 }}>{t('serviceFeePreview')}: {form.service_fee} {t('etb')}{t('perItemSuffix')}</div>}
               </div>
             </div>
           </>
@@ -225,7 +228,7 @@ export default function CreateCafe() {
 
         {/* Create button */}
         <button className="btn btn-red" style={{ borderRadius: 12, fontSize: 16, fontWeight: 700 }} onClick={handleCreate} disabled={saving}>
-          {saving ? 'Creating...' : '⊕ Create Cafe'}
+          {saving ? t('creatingBtn') : t('createCafeBtn')}
         </button>
       </div>
 

@@ -6,9 +6,11 @@ import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
 
 export default function Customers() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const [customers, setCustomers] = useState([]);
   const [creditApps, setCreditApps] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +52,12 @@ export default function Customers() {
 
   async function handleSetCreditLimit() {
     const limit = parseFloat(creditLimit);
-    if (isNaN(limit) || limit < 0) return telegram.alert('Enter a valid credit limit.');
+    if (isNaN(limit) || limit < 0) return telegram.alert(t('validCreditLimitAlert'));
     setSavingLimit(true);
     try {
       await setCustomerCreditLimit(selected.id, limit);
       telegram.haptic('success');
-      telegram.alert(`Credit limit set to ${limit.toFixed(2)} ETB`);
+      telegram.alert(`${t('creditLimitSetPrefix')} ${limit.toFixed(2)} ${t('etb')}`);
       await load();
       setSelected(prev => ({ ...prev, credit_limit: limit }));
     } catch (err) {
@@ -80,7 +82,7 @@ export default function Customers() {
     !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
   );
 
-  if (loading) return <Spinner fullPage label="Loading customers..." />;
+  if (loading) return <Spinner fullPage label={t('loadingCustomers')} />;
 
   function getInitials(name) {
     return (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -94,17 +96,17 @@ export default function Customers() {
       {/* Header */}
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
-        <div className="header-title">Customers</div>
+        <div className="header-title">{t('customersTitle')}</div>
         <div style={{ width: 36 }} />
       </div>
 
       {/* Tabs */}
       <div className="tabs">
         <button className={`tab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>
-          👥 Customers ({customers.length})
+          {t('customers')} ({customers.length})
         </button>
         <button className={`tab ${tab === 'credit' ? 'active' : ''}`} onClick={() => setTab('credit')}>
-          ✨ Credit Apps
+          {t('creditAppsTab')}
           {pendingApps.length > 0 && (
             <span style={{ background: 'var(--red)', color: '#fff', borderRadius: 10, fontSize: 10, padding: '1px 6px', marginLeft: 4 }}>
               {pendingApps.length}
@@ -118,7 +120,7 @@ export default function Customers() {
         <div style={{ padding: '12px 16px 0' }}>
           <div className="input-wrap">
             <span className="input-icon">🔍</span>
-            <input className="input" placeholder="Search by name or phone..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="input" placeholder={t('searchByNamePhone')} value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
       )}
@@ -130,7 +132,7 @@ export default function Customers() {
           filtered.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">👥</div>
-              <div className="empty-title">No customers yet</div>
+              <div className="empty-title">{t('noCustomers')}</div>
             </div>
           ) : (
             filtered.map(customer => (
@@ -140,11 +142,11 @@ export default function Customers() {
                     {getInitials(customer.name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || 'Unknown'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{customer.name || t('unknownName')}</div>
                     <div style={{ fontSize: 13, color: 'var(--text2)' }}>📞 {customer.phone}</div>
                     <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12 }}>
-                      <span style={{ color: 'var(--green)' }}>Balance: {parseFloat(customer.balance || 0).toFixed(0)} ETB</span>
-                      <span style={{ color: 'var(--blue)' }}>Credit: {parseFloat(customer.credit_limit || 0).toFixed(0)} ETB</span>
+                      <span style={{ color: 'var(--green)' }}>{t('balance')}: {parseFloat(customer.balance || 0).toFixed(0)} {t('etb')}</span>
+                      <span style={{ color: 'var(--blue)' }}>{t('creditLimitLabel')}: {parseFloat(customer.credit_limit || 0).toFixed(0)} {t('etb')}</span>
                     </div>
                   </div>
                   <div style={{ color: 'var(--text3)', fontSize: 18 }}>›</div>
@@ -159,7 +161,7 @@ export default function Customers() {
           creditApps.length === 0 ? (
             <div className="empty">
               <div className="empty-icon">✨</div>
-              <div className="empty-title">No credit applications</div>
+              <div className="empty-title">{t('noCreditApps')}</div>
             </div>
           ) : (
             creditApps.map(app => (
@@ -172,8 +174,8 @@ export default function Customers() {
                   <StatusBadge status={app.status} />
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
-                  Requested: <strong>{parseFloat(app.requested_limit).toFixed(2)} ETB</strong>
-                  {app.approved_limit && <span> · Approved: <strong>{parseFloat(app.approved_limit).toFixed(2)} ETB</strong></span>}
+                  {t('requestedLabel')}: <strong>{parseFloat(app.requested_limit).toFixed(2)} {t('etb')}</strong>
+                  {app.approved_limit && <span> · {t('approved')}: <strong>{parseFloat(app.approved_limit).toFixed(2)} {t('etb')}</strong></span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: app.status === 'pending' ? 10 : 0 }}>
                   {new Date(app.applied_at).toLocaleDateString()}
@@ -181,13 +183,13 @@ export default function Customers() {
                 {app.status === 'pending' && (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => handleReviewCredit(app.id, 'rejected', null)}>
-                      ✕ Reject
+                      {t('rejectBtn')}
                     </button>
                     <button className="btn btn-red btn-sm" style={{ flex: 1 }} onClick={() => {
-                      const limit = prompt(`Approve credit for ${app.customer_name}?\nEnter approved limit (ETB):`);
+                      const limit = prompt(`${t('approveCreditPromptPrefix')} ${app.customer_name}${t('approveCreditPromptSuffix')}`);
                       if (limit && parseFloat(limit) > 0) handleReviewCredit(app.id, 'approved', parseFloat(limit));
                     }}>
-                      ✓ Approve
+                      {t('approveOrder')}
                     </button>
                   </div>
                 )}
@@ -220,20 +222,20 @@ export default function Customers() {
             {/* Balance & credit row */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
               <div style={{ background: '#e8f5e9', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Balance</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>{parseFloat(selected.balance || 0).toFixed(0)} ETB</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('balance')}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>{parseFloat(selected.balance || 0).toFixed(0)} {t('etb')}</div>
               </div>
               <div style={{ background: '#eff6ff', borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>Credit Used</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#3b82f6' }}>{parseFloat(selected.credit_used || 0).toFixed(0)} ETB</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>{t('creditUsedLabel')}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#3b82f6' }}>{parseFloat(selected.credit_used || 0).toFixed(0)} {t('etb')}</div>
               </div>
             </div>
 
             {/* Set credit limit */}
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>✨ Set Credit Limit</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('setCreditLimit')}</div>
               <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-                Current limit: <strong>{parseFloat(selected.credit_limit || 0).toFixed(2)} ETB</strong>
+                {t('currentLimitLabel')}: <strong>{parseFloat(selected.credit_limit || 0).toFixed(2)} {t('etb')}</strong>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div style={{ position: 'relative', flex: 1 }}>
@@ -246,23 +248,23 @@ export default function Customers() {
                   />
                 </div>
                 <button className="btn btn-red" style={{ width: 'auto', padding: '13px 20px', flexShrink: 0 }} onClick={handleSetCreditLimit} disabled={savingLimit}>
-                  {savingLimit ? '...' : 'Set'}
+                  {savingLimit ? '...' : t('set')}
                 </button>
               </div>
             </div>
 
             {/* Last 10 days orders */}
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>Order History (Last 10 days)</div>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t('orderHistoryLast10')}</div>
             {loadingDetail ? (
               <div className="spinner" />
             ) : !detail?.orders?.length ? (
-              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '16px 0' }}>No recent orders</div>
+              <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '16px 0' }}>{t('noRecentOrdersShort')}</div>
             ) : (
               detail.orders.map(order => (
                 <div key={order.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>#{order.id?.slice(0, 6)}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} ETB</span>
+                    <span style={{ fontWeight: 700, color: 'var(--red)' }}>{parseFloat(order.total).toFixed(0)} {t('etb')}</span>
                   </div>
                   {order.items?.map((item, i) => (
                     <div key={i} style={{ fontSize: 12, color: 'var(--text2)' }}>{item.quantity}× {item.name}</div>

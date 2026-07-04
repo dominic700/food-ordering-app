@@ -4,9 +4,11 @@ import { getRegistrations, approveRegistration, rejectRegistration } from '../..
 import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
 
 export default function Registrations() {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [actionId, setActionId]           = useState(null);
@@ -67,7 +69,7 @@ export default function Registrations() {
     return COLORS[(name?.charCodeAt(0) || 0) % COLORS.length];
   }
 
-  if (loading) return <Spinner fullPage label="Loading registrations..." />;
+  if (loading) return <Spinner fullPage label={t('loadingRegistrations')} />;
 
   return (
     <div className="page">
@@ -76,7 +78,7 @@ export default function Registrations() {
       <div className="header">
         <button className="header-icon" onClick={() => navigate('/cafe-home')}>‹</button>
         <div className="header-title">
-          Registration Requests
+          {t('registrationRequests')}
           {registrations.length > 0 && (
             <span style={{
               background: 'var(--red)', color: '#fff',
@@ -95,9 +97,9 @@ export default function Registrations() {
         {registrations.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">📝</div>
-            <div className="empty-title">No pending registrations</div>
+            <div className="empty-title">{t('noPendingRegs')}</div>
             <div className="empty-desc">
-              New customer registration requests will appear here automatically
+              {t('noPendingRegsDesc')}
             </div>
           </div>
         ) : (
@@ -120,13 +122,13 @@ export default function Registrations() {
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>
-                    {reg.name || 'Unknown'}
+                    {reg.name || t('unknownName')}
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
                     📞 {reg.phone}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                    Applied {new Date(reg.registered_at).toLocaleDateString()} at{' '}
+                    {t('appliedOnPrefix')} {new Date(reg.registered_at).toLocaleDateString()} {t('atWord')}{' '}
                     {new Date(reg.registered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -138,7 +140,7 @@ export default function Registrations() {
                     borderRadius: 12, fontSize: 11, fontWeight: 700,
                     padding: '3px 10px',
                   }}>
-                    Pending
+                    {t('pending')}
                   </span>
                   <span style={{ color: 'var(--text3)', fontSize: 16 }}>›</span>
                 </div>
@@ -152,7 +154,7 @@ export default function Registrations() {
                   onClick={e => { e.stopPropagation(); handleReject(reg.id); }}
                   disabled={actionId === reg.id}
                 >
-                  ✕ Reject
+                  {t('rejectBtn')}
                 </button>
                 <button
                   className="btn btn-red"
@@ -160,7 +162,7 @@ export default function Registrations() {
                   onClick={e => { e.stopPropagation(); handleApprove(reg.id); }}
                   disabled={actionId === reg.id}
                 >
-                  {actionId === reg.id ? '...' : '✓ Approve'}
+                  {actionId === reg.id ? '...' : t('approveOrder')}
                 </button>
               </div>
             </div>
@@ -194,13 +196,13 @@ export default function Registrations() {
               </div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>
-                  {selected.name || 'Unknown'}
+                  {selected.name || t('unknownName')}
                 </div>
                 <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 2 }}>
                   📞 {selected.phone}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                  Telegram ID: {selected.telegram_id}
+                  {t('telegramIdLabel')}: {selected.telegram_id}
                 </div>
               </div>
             </div>
@@ -213,23 +215,23 @@ export default function Registrations() {
               marginBottom: 20,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Status</span>
+                <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('statusLabel')}</span>
                 <span style={{
                   background: '#fff3e0', color: '#f97316',
                   borderRadius: 10, fontSize: 12, fontWeight: 700,
                   padding: '2px 10px',
                 }}>
-                  Pending
+                  {t('pending')}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Applied</span>
+                <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('appliedOnPrefix')}</span>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>
                   {new Date(selected.registered_at).toLocaleDateString()}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 13, color: 'var(--text2)' }}>Time</span>
+                <span style={{ fontSize: 13, color: 'var(--text2)' }}>{t('timeLabel')}</span>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>
                   {new Date(selected.registered_at).toLocaleTimeString([], {
                     hour: '2-digit', minute: '2-digit'
@@ -249,8 +251,7 @@ export default function Registrations() {
               marginBottom: 20,
               lineHeight: 1.6,
             }}>
-              ℹ️ Approving this customer allows them to use wallet balance and credit payments at your cafe.
-              They can already order with Cash or Transfer without registration.
+              ℹ️ {t('approvingCustomerInfo')}
             </div>
 
             {/* Action buttons */}
@@ -261,7 +262,7 @@ export default function Registrations() {
                 onClick={() => handleReject(selected.id)}
                 disabled={actionId === selected.id}
               >
-                ✕ Reject
+                {t('rejectBtn')}
               </button>
               <button
                 className="btn btn-red"
@@ -269,7 +270,7 @@ export default function Registrations() {
                 onClick={() => handleApprove(selected.id)}
                 disabled={actionId === selected.id}
               >
-                {actionId === selected.id ? 'Processing...' : '✓ Approve'}
+                {actionId === selected.id ? t('processing') : t('approveOrder')}
               </button>
             </div>
 

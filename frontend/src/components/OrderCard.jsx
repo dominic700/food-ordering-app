@@ -1,24 +1,26 @@
 import StatusBadge from './StatusBadge.jsx';
 import { FiAlertTriangle, FiDollarSign, FiX, FiCheck } from 'react-icons/fi';
 import { LuWallet, LuLandmark } from 'react-icons/lu';
+import useLanguage from '../hooks/useLanguage.js';
 
 export default function OrderCard({ order, showCustomer, onApprove, onCancel }) {
+  const { t } = useLanguage();
   const date    = new Date(order.created_at);
   const shortId = order.id?.slice(0, 8);
   const isCash  = order.payment_method === 'cash';
 
   // Payment label
   let paymentIcon = <LuWallet size={13} />;
-  let paymentLabel = 'Wallet / Credit';
+  let paymentLabel = t('walletCreditPayment');
   if (order.payment_method === 'cash') {
     paymentIcon = <FiDollarSign size={13} />;
-    paymentLabel = 'Cash Payment';
+    paymentLabel = t('cashPaymentLabel');
   } else if (order.payment_method === 'transfer') {
     paymentIcon = <LuLandmark size={13} />;
-    paymentLabel = `Transfer (${order.transfer_provider?.replace('_', ' ') || ''})`;
+    paymentLabel = `${t('transfer')} (${order.transfer_provider?.replace('_', ' ') || ''})`;
   } else if (parseFloat(order.paid_from_credit) > 0) {
     paymentIcon = <LuWallet size={13} />;
-    paymentLabel = 'Wallet + Credit';
+    paymentLabel = t('walletPlusCreditPayment');
   }
 
   return (
@@ -38,7 +40,7 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
           gap: 6,
         }}>
           <FiAlertTriangle size={14} />
-          CASH ORDER — Collect {parseFloat(order.total).toFixed(2)} ETB from customer!
+          {t('cashOrderPrefix')} {parseFloat(order.total).toFixed(2)} {t('etb')} {t('cashOrderSuffix')}
         </div>
       )}
 
@@ -47,7 +49,7 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
         <div className="order-card-info">
           <div className="order-cafe-name">
             {showCustomer
-              ? (order.customer_name || 'Customer')
+              ? (order.customer_name || t('customerFallback'))
               : `Order #${shortId}`}
           </div>
           <div className="order-meta">
@@ -58,10 +60,10 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
         </div>
         <div style={{ textAlign: 'right' }}>
           <StatusBadge status={order.status} />
-          <div className="order-total">{parseFloat(order.total).toFixed(2)} ETB</div>
+          <div className="order-total">{parseFloat(order.total).toFixed(2)} {t('etb')}</div>
           {parseFloat(order.discount_amount || 0) > 0 && (
             <div style={{ fontSize: 11, color: 'var(--green)' }}>
-              −{parseFloat(order.discount_amount).toFixed(2)} discount
+              −{parseFloat(order.discount_amount).toFixed(2)} {t('discountSuffix')}
             </div>
           )}
         </div>
@@ -74,7 +76,7 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
             <span style={{ flex: 1 }}>{item.name}</span>
             <span style={{ color: 'var(--text2)' }}>x{item.quantity}</span>
             <span style={{ fontWeight: 700 }}>
-              {parseFloat(item.item_total).toFixed(2)} ETB
+              {parseFloat(item.item_total).toFixed(2)} {t('etb')}
             </span>
           </div>
         ))}
@@ -95,14 +97,14 @@ export default function OrderCard({ order, showCustomer, onApprove, onCancel }) 
               style={{ display: 'flex', alignItems: 'center', gap: 4 }}
               onClick={() => onCancel(order.id)}
             >
-              <FiX size={14} /> Cancel
+              <FiX size={14} /> {t('cancel')}
             </button>
             <button
               className="btn btn-red btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: 4 }}
               onClick={() => onApprove(order.id)}
             >
-              <FiCheck size={14} /> {isCash ? 'Accept (Cash)' : 'Accept'}
+              <FiCheck size={14} /> {isCash ? t('acceptCashOrder') : t('acceptOrder')}
             </button>
           </div>
         )}

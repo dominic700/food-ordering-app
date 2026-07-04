@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import telegram from '../telegram.js';
+import useLanguage from '../hooks/useLanguage.js';
 import { LuStore, LuImage, LuPlus } from 'react-icons/lu';
 import { FiBarChart2 } from 'react-icons/fi';
 
 export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
   const navigate = useNavigate();
+  const { t }     = useLanguage();
 
   function go(path) {
     telegram.haptic();
@@ -43,7 +45,7 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
       {/* Cafes */}
       <button style={btnStyle('cafes')} onClick={() => go('/admin')}>
         <span style={iconStyle('cafes')}><LuStore size={ICON_SIZE} /></span>
-        <span style={labelStyle('cafes')}>Cafes</span>
+        <span style={labelStyle('cafes')}>{t('navCafes')}</span>
       </button>
 
       {/* New Cafe — big red circle center */}
@@ -64,14 +66,14 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
           <LuPlus size={26} />
         </button>
         <span style={{ fontSize: 11, fontWeight: 600, color: active === 'create' ? 'var(--red)' : 'var(--text2)' }}>
-          New Cafe
+          {t('navNewCafe')}
         </span>
       </div>
 
       {/* Promotions */}
       <button style={btnStyle('promotions')} onClick={() => go('/admin/promotions')}>
         <span style={iconStyle('promotions')}><LuImage size={ICON_SIZE} /></span>
-        <span style={labelStyle('promotions')}>Promos</span>
+        <span style={labelStyle('promotions')}>{t('navPromos')}</span>
       </button>
 
       {/* Orders Today */}
@@ -90,7 +92,7 @@ export default function AdminBottomNav({ active, totalOrdersToday = 0 }) {
             </span>
           )}
         </div>
-        <span style={labelStyle('orders')}>Orders</span>
+        <span style={labelStyle('orders')}>{t('navOrders')}</span>
       </button>
 
     </div>

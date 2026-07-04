@@ -10,10 +10,12 @@ import MenuItemCard from '../../components/MenuItemCard.jsx';
 import CartBar from '../../components/CartBar.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
+import useLanguage from '../../hooks/useLanguage.js';
 
 export default function CafeMenu() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();
+  const { t }       = useLanguage();
   const [searchParams] = useSearchParams();
   const { cafe, cafeAccount, promotions, loading: ctxLoading, refreshAccount } = useCafeContext();
 
@@ -87,8 +89,8 @@ export default function CafeMenu() {
   }
 
   async function handleRegister() {
-    if (!regName.trim())  return telegram.alert('Please enter your name.');
-    if (!regPhone.trim()) return telegram.alert('Please enter your phone number.');
+    if (!regName.trim())  return telegram.alert(t('enterYourName'));
+    if (!regPhone.trim()) return telegram.alert(t('enterYourPhone'));
 
     setRegistering(true);
     try {
@@ -112,20 +114,20 @@ export default function CafeMenu() {
     return true;
   });
 
-  const cafeName = cafe?.name || 'Cafe';
+  const cafeName = cafe?.name || t('cafeFallbackName');
 
   const slides = promotions.length > 0
     ? promotions
     : [];
 
   const fallbackSlides = [{
-    badge:  'WELCOME',
+    badge:  t('welcomeBadge'),
     title:  cafeName,
-    desc:   cafe?.description || 'Browse the menu and place your order',
+    desc:   cafe?.description || t('browseMenuDefaultDesc'),
     emoji:  '🍽️',
   }];
 
-  if (ctxLoading || menuLoading) return <Spinner fullPage label="Loading menu..." />;
+  if (ctxLoading || menuLoading) return <Spinner fullPage label={t('loadingMenu')} />;
 
   return (
     <div className="page" style={{ paddingBottom: cartCount > 0 ? 150 : 100 }}>
@@ -152,7 +154,7 @@ export default function CafeMenu() {
             <span className="input-icon">🔍</span>
             <input
               className="input"
-              placeholder="Search menu..."
+              placeholder={t('searchMenu')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               autoFocus
@@ -164,13 +166,12 @@ export default function CafeMenu() {
       {/* Status banners for registered but not approved */}
       {status === 'pending' && (
         <div style={{ margin: '12px 16px 0', background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 12, padding: '12px 14px', fontSize: 13, color: '#c2410c' }}>
-          ⏳ <strong>Registration Pending</strong> — Waiting for cafe approval.
-          You can still browse the menu and place cash or transfer orders.
+          ⏳ <strong>{t('pendingRegBannerTitle')}</strong> — {t('pendingRegBannerDesc')}
         </div>
       )}
       {status === 'suspended' && (
         <div style={{ margin: '12px 16px 0', background: '#ffeaea', border: '1.5px solid var(--red)', borderRadius: 12, padding: '12px 14px', fontSize: 13, color: 'var(--red)' }}>
-          🚫 <strong>Account Suspended</strong> — Contact the cafe for assistance.
+          🚫 <strong>{t('suspendedTitle')}</strong> — {t('suspendedDesc')}
         </div>
       )}
 
@@ -182,13 +183,13 @@ export default function CafeMenu() {
       {/* Menu */}
       <div style={{ padding: '0 16px' }}>
         <div className="section-header">
-          <div className="section-title">Menu</div>
+          <div className="section-title">{t('menu')}</div>
           {!isApproved && !status && (
             <button
               className="btn btn-red btn-sm"
               onClick={() => setShowRegSheet(true)}
             >
-              Register
+              {t('registerShort')}
             </button>
           )}
         </div>
@@ -199,7 +200,7 @@ export default function CafeMenu() {
             className={`cat-tab ${activeCategory === 'all' ? 'active' : 'inactive'}`}
             onClick={() => setActiveCategory('all')}
           >
-            All
+            {t('allCategoriesTab')}
           </button>
           {menu.categories.map(cat => (
             <button
@@ -216,7 +217,7 @@ export default function CafeMenu() {
         {filteredItems.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">🍽️</div>
-            <div className="empty-title">No items found</div>
+            <div className="empty-title">{t('noItemsFound')}</div>
           </div>
         ) : (
           <div className="card" style={{ padding: 0 }}>
@@ -253,36 +254,35 @@ export default function CafeMenu() {
               <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
                 <div style={{ fontSize: 52, marginBottom: 12 }}>✅</div>
                 <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-                  Registration Sent!
+                  {t('registrationSentTitle')}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
-                  Your request has been sent to <strong>{cafeName}</strong>.<br />
-                  You will be notified once approved.<br /><br />
-                  You can still order with <strong>Cash</strong> or <strong>Transfer</strong> now.
+                  {t('registrationSentTo')} <strong>{cafeName}</strong>.<br />
+                  {t('registrationSentNotify')}<br /><br />
+                  {t('registrationSentCashHint')} <strong>{t('cash')}</strong> {t('orWord')} <strong>{t('transfer')}</strong> {t('nowWord')}
                 </div>
                 <button
                   className="btn btn-red"
                   onClick={() => setShowRegSheet(false)}
                 >
-                  Got it, Browse Menu
+                  {t('gotItBrowseMenu')}
                 </button>
               </div>
             ) : (
               /* Registration form */
               <>
-                <div className="sheet-title">Register at {cafeName}</div>
+                <div className="sheet-title">{t('registerAtPrefix')} {cafeName}</div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
-                  Create your account to use wallet balance and credit payments.
-                  Cash and transfer orders are available without registration.
+                  {t('registerFormDesc')}
                 </div>
 
                 <div className="input-group">
-                  <label className="input-label">Full Name</label>
+                  <label className="input-label">{t('fullName')}</label>
                   <div className="input-wrap">
                     <span className="input-icon">👤</span>
                     <input
                       className="input"
-                      placeholder="Enter your full name"
+                      placeholder={t('fullNamePlaceholder')}
                       value={regName}
                       onChange={e => setRegName(e.target.value)}
                     />
@@ -290,7 +290,7 @@ export default function CafeMenu() {
                 </div>
 
                 <div className="input-group">
-                  <label className="input-label">Phone Number</label>
+                  <label className="input-label">{t('phoneNumberLabel')}</label>
                   <div className="input-wrap">
                     <span className="input-icon">📞</span>
                     <input
@@ -309,14 +309,14 @@ export default function CafeMenu() {
                   disabled={registering}
                   style={{ marginBottom: 10 }}
                 >
-                  {registering ? 'Sending request...' : 'Send Registration Request'}
+                  {registering ? t('sendingRequest') : t('registerBtn')}
                 </button>
 
                 <button
                   className="btn btn-outline"
                   onClick={() => setShowRegSheet(false)}
                 >
-                  Skip — Order with Cash or Transfer
+                  {t('skipOrderCashTransfer')}
                 </button>
               </>
             )}
