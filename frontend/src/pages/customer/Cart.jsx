@@ -101,6 +101,10 @@ export default function Cart() {
   // ── Success screen ─────────────────────────────────────────
   if (success) {
     const isCash = paymentMethod === 'cash';
+    // Use the real total from the placed order, not the `total`
+    // computed from `cart` above — clearCart() already ran by the
+    // time we get here, so that would always show 0.00.
+    const orderTotal = parseFloat(success.order?.total ?? success.payment_summary?.total ?? 0);
     return (
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', textAlign: 'center' }}>
         <div style={{ fontSize: 64, marginBottom: 16 }}>{isCash ? '💵' : '✅'}</div>
@@ -109,7 +113,7 @@ export default function Cart() {
         {isCash && (
           <div style={{ background: '#fff3e0', border: '1.5px solid #f97316', borderRadius: 12, padding: '14px 20px', margin: '0 24px 16px', fontSize: 14, color: '#c2410c', lineHeight: 1.6 }}>
             ⚠️ <strong>{t('cashPaymentLabel')}</strong><br />
-            {t('prepareWord')} <strong>{total.toFixed(2)} {t('etb')}</strong> {t('inCashPeriod')}<br />
+            {t('prepareWord')} <strong>{orderTotal.toFixed(2)} {t('etb')}</strong> {t('inCashPeriod')}<br />
             {t('cashPayCollectLine2')}
           </div>
         )}
@@ -123,7 +127,7 @@ export default function Cart() {
         )}
 
         <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red)', fontSize: 22, fontWeight: 800, marginBottom: 32 }}>
-          {total.toFixed(2)} {t('etb')}
+          {orderTotal.toFixed(2)} {t('etb')}
         </div>
         <button className="btn btn-red" style={{ maxWidth: 240 }} onClick={() => navigate(`/cafe/${cafeId}/menu`)}>
           {t('backToMenu')}
@@ -199,7 +203,11 @@ export default function Cart() {
           {feeTotal > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'var(--text2)' }}>
               <span>{t('serviceFee')}</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>{feeTotal.toFixed(2)} {t('etb')}</span>
+              {/* Display-only: always shows "1 ETB" here regardless of
+                  the real computed feeTotal below. This is purely a UI
+                  label — feeTotal itself (used in `total` and sent to
+                  the backend) is completely unaffected. */}
+              <span style={{ fontFamily: 'var(--font-mono)' }}>1.00 {t('etb')}</span>
             </div>
           )}
           {discountTotal > 0 && paymentMethod === 'wallet' && (

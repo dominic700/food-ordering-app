@@ -7,7 +7,6 @@ import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import PromoSlider from '../../components/PromoSlider.jsx';
 import MenuItemCard from '../../components/MenuItemCard.jsx';
-import CartBar from '../../components/CartBar.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import telegram from '../../telegram.js';
 import useLanguage from '../../hooks/useLanguage.js';
@@ -233,13 +232,6 @@ export default function CafeMenu() {
           </div>
         )}
       </div>
-
-      {/* Cart bar */}
-      <CartBar
-        count={cartCount}
-        total={cartTotal}
-        onClick={() => navigate(`/cafe/${cafeId}/cart`)}
-      />
 
       <BottomNav variant="customer-cafe" cafeId={cafeId} active="menu" />
 
