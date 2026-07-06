@@ -32,6 +32,13 @@ export default function Cart() {
   const [note,     setNote]     = useState('');
   const [placing,  setPlacing]  = useState(false);
   const [success,  setSuccess]  = useState(null);
+  // Captured at the exact moment an order is successfully placed,
+  // from `total` below (still correct at that point, before
+  // clearCart() runs). The success screen uses THIS instead of
+  // re-reading `total`, `success.order.total`, etc. afterward —
+  // avoids depending on cart state or the backend response shape
+  // for something that's already known and correct right here.
+  const [placedTotal, setPlacedTotal] = useState(0);
 
   const isApproved = cafeAccount?.status === 'approved';
 
@@ -86,6 +93,7 @@ export default function Cart() {
       }
 
       const result = await placeOrder(cafeId, items, note, paymentInfo);
+      setPlacedTotal(total);
       clearCart();
       setSuccess(result);
       telegram.haptic('success');
@@ -101,10 +109,14 @@ export default function Cart() {
   // ── Success screen ─────────────────────────────────────────
   if (success) {
     const isCash = paymentMethod === 'cash';
-    // Use the real total from the placed order, not the `total`
-    // computed from `cart` above — clearCart() already ran by the
-    // time we get here, so that would always show 0.00.
-    const orderTotal = parseFloat(success.order?.total ?? success.payment_summary?.total ?? 0);
+    // placedTotal was captured the instant the order succeeded,
+    // before clearCart() ran — this is the reliable source. Only
+    // fall back to the backend response if for some reason it's
+    // still 0 (e.g. a hot-reload wiped state without a full order
+    // flow), never the other way around.
+    const orderTotal = placedTotal > 0
+      ? placedTotal
+      : parseFloat(success.order?.total ?? success.payment_summary?.total ?? 0);
     return (
       <div className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', textAlign: 'center' }}>
         <div style={{ fontSize: 64, marginBottom: 16 }}>{isCash ? '💵' : '✅'}</div>
