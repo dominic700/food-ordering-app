@@ -36,6 +36,7 @@ CREATE TABLE cafe_owners (
     telegram_id BIGINT UNIQUE NOT NULL,
     name        VARCHAR(100),
     phone       VARCHAR(20),
+    language    VARCHAR(2) NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'am')),
     created_at  TIMESTAMP DEFAULT NOW()
 );
 
@@ -46,6 +47,7 @@ CREATE TABLE global_accounts (
     telegram_id BIGINT UNIQUE NOT NULL,
     name        VARCHAR(100),
     phone       VARCHAR(20) NOT NULL,
+    language    VARCHAR(2) NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'am')),
     created_at  TIMESTAMP DEFAULT NOW()
 );
 

@@ -86,14 +86,14 @@ router.patch('/registrations/:pcaId/approve', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Registration not found' });
     const pca = result.rows[0];
 
-    const ga = await pool.query('SELECT telegram_id, name FROM global_accounts WHERE id = $1', [pca.global_account_id]);
+    const ga = await pool.query('SELECT telegram_id, name, language FROM global_accounts WHERE id = $1', [pca.global_account_id]);
     const cafe = await pool.query('SELECT name FROM cafes WHERE id = $1', [cafe_id]);
     if (ga.rows.length > 0) {
       const cafeName = cafe.rows[0]?.name || 'The cafe';
 
       sendTelegramMessage(
         ga.rows[0].telegram_id,
-        registrationApprovedMessage(cafeName)
+        registrationApprovedMessage(cafeName, ga.rows[0].language)
       );
 
       createNotification({
@@ -253,14 +253,14 @@ router.patch('/customers/:pcaId/credit-limit', async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
     const pca = result.rows[0];
 
-    const ga = await pool.query('SELECT telegram_id FROM global_accounts WHERE id = $1', [pca.global_account_id]);
+    const ga = await pool.query('SELECT telegram_id, language FROM global_accounts WHERE id = $1', [pca.global_account_id]);
     const cafe = await pool.query('SELECT name FROM cafes WHERE id = $1', [cafe_id]);
     if (ga.rows.length > 0) {
       const cafeName = cafe.rows[0]?.name || 'The cafe';
 
       sendTelegramMessage(
         ga.rows[0].telegram_id,
-        creditLimitSetMessage(cafeName, limit)
+        creditLimitSetMessage(cafeName, limit, ga.rows[0].language)
       );
 
       createNotification({
@@ -337,6 +337,31 @@ router.get('/fee-stats', async (req, res) => {
       current_period: current.rows[0],
       history:        history.rows,
     });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── PATCH /api/cafe/language ───────────────────────────────────
+// Saves the cafe owner's chosen app language so server-sent
+// Telegram bot notifications (new order, new registration, etc.)
+// are written in the same language, not just the in-app UI text.
+router.patch('/language', async (req, res) => {
+  try {
+    const { id } = req.cafeOwner;
+    const { language } = req.body;
+
+    if (!['en', 'am'].includes(language)) {
+      return res.status(400).json({ error: "language must be 'en' or 'am'" });
+    }
+
+    const result = await pool.query(
+      `UPDATE cafe_owners SET language = $1 WHERE id = $2 RETURNING language`,
+      [language, id]
+    );
+
+    res.json({ language: result.rows[0].language });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });

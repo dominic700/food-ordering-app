@@ -22,3 +22,8 @@ export const transferBalance = (cafeId, toPhone, amount) =>
     to_phone: toPhone,
     amount,
   });
+
+// Persists the customer's chosen language server-side, so Telegram
+// bot push notifications (order approved, deposit verified, etc.)
+// match it too, not just the in-app UI text.
+export const setLanguage = (language) => request('PATCH', '/customer/language', { language });

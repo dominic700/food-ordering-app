@@ -24,7 +24,7 @@ router.post('/init', telegramAuth, async (req, res) => {
 
     // 2. Check if cafe owner
     const ownerCheck = await pool.query(`
-      SELECT co.id, co.cafe_id, co.name, co.phone,
+      SELECT co.id, co.cafe_id, co.name, co.phone, co.language,
              c.name AS cafe_name, c.logo_url, c.address, c.service_fee
       FROM cafe_owners co
       JOIN cafes c ON co.cafe_id = c.id

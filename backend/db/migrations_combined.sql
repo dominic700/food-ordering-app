@@ -8,7 +8,7 @@
 --   - a DB that already has all five applied (it's a no-op)
 --
 -- Usage:
---   psql "postgresql://food_ordering_qn2a_user:ybT4Z0Ghmw3BM9WWrJRflhpFWgaw69GU@dpg-d8nunlbeo5us738egnqg-a.oregon-postgres.render.com/food_ordering_qn2a" -f db/migrations_combined.sql
+--   psql "your_database_url" -f db/migrations_combined.sql
 --
 -- (The individual migration_00N_*.sql files are kept as-is for
 -- reference / history — this file just runs the same statements
@@ -106,3 +106,17 @@ CREATE INDEX IF NOT EXISTS idx_fee_collections_date
 
 ALTER TABLE fee_collections
   ADD COLUMN IF NOT EXISTS total_revenue NUMERIC(10,2) NOT NULL DEFAULT 0;
+
+
+-- ── MIGRATION 006 — language preference ─────────────────────
+-- Stores each customer's and cafe owner's chosen app language, so
+-- server-sent Telegram bot notifications match the language they
+-- picked in the app (not just the in-app UI text).
+
+ALTER TABLE global_accounts
+  ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'en'
+  CHECK (language IN ('en', 'am'));
+
+ALTER TABLE cafe_owners
+  ADD COLUMN IF NOT EXISTS language VARCHAR(2) NOT NULL DEFAULT 'en'
+  CHECK (language IN ('en', 'am'));

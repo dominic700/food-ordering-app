@@ -2,7 +2,7 @@ import express from 'express';
 import pool from '../db/connection.js';
 import { telegramAuth } from '../middleware/auth.js';
 import { createNotification } from '../utils/notifications.js';
-import { sendTelegramMessage, newRegistrationMessage } from '../utils/telegramBot.js';
+import { sendTelegramMessage, newRegistrationMessage, moneyReceivedMessage } from '../utils/telegramBot.js';
 
 const router = express.Router();
 router.use(telegramAuth);
@@ -128,7 +128,7 @@ router.post('/account/:cafeId/register', async (req, res) => {
     // Telegram bot push (sound + popup, primary alert) and the
     // in-app notification history row (bell icon).
     const ownerResult = await pool.query(
-      'SELECT telegram_id FROM cafe_owners WHERE cafe_id = $1', [cafeId]
+      'SELECT telegram_id, language FROM cafe_owners WHERE cafe_id = $1', [cafeId]
     );
     if (ownerResult.rows.length > 0) {
       const ownerTelegramId = ownerResult.rows[0].telegram_id;
@@ -137,7 +137,7 @@ router.post('/account/:cafeId/register', async (req, res) => {
 
       sendTelegramMessage(
         ownerTelegramId,
-        newRegistrationMessage(displayName, displayPhone)
+        newRegistrationMessage(displayName, displayPhone, ownerResult.rows[0].language)
       );
 
       createNotification({
@@ -208,7 +208,7 @@ router.post('/account/:cafeId/transfer', async (req, res) => {
 
     // ── Resolve receiver by phone ─────────────────────────────
     const receiverResult = await client.query(`
-      SELECT pca.id, pca.balance, ga.name AS receiver_name, ga.telegram_id AS receiver_telegram_id
+      SELECT pca.id, pca.balance, ga.name AS receiver_name, ga.telegram_id AS receiver_telegram_id, ga.language AS receiver_language
       FROM per_cafe_accounts pca
       JOIN global_accounts ga ON pca.global_account_id = ga.id
       WHERE ga.phone = $1 AND pca.cafe_id = $2 AND pca.status = 'approved'
@@ -243,9 +243,12 @@ router.post('/account/:cafeId/transfer', async (req, res) => {
     // Notify both parties via Telegram push + in-app bell
     sendTelegramMessage(
       receiver.receiver_telegram_id,
-      `💸 <b>Money Received!</b>\n\n` +
-      `<b>${sender.sender_name}</b> sent you <b>${transferAmount.toFixed(2)} ETB</b> at this cafe.\n` +
-      `Your new balance: <b>${(parseFloat(receiver.balance) + transferAmount).toFixed(2)} ETB</b>`
+      moneyReceivedMessage(
+        sender.sender_name,
+        transferAmount,
+        parseFloat(receiver.balance) + transferAmount,
+        receiver.receiver_language
+      )
     );
 
     createNotification({
@@ -305,6 +308,38 @@ router.get('/account/:cafeId/history', async (req, res) => {
     `, [pcaId]);
 
     res.json({ orders: orders.rows, deposits: deposits.rows });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── PATCH /api/customer/language ──────────────────────────────
+// Saves the customer's chosen app language so server-sent Telegram
+// bot notifications (new order approved, deposit verified, etc.)
+// are written in the same language, not just the in-app UI text.
+router.patch('/language', async (req, res) => {
+  try {
+    const { telegram_id } = req.telegramUser;
+    const { language } = req.body;
+
+    if (!['en', 'am'].includes(language)) {
+      return res.status(400).json({ error: "language must be 'en' or 'am'" });
+    }
+
+    const result = await pool.query(
+      `UPDATE global_accounts SET language = $1 WHERE telegram_id = $2 RETURNING language`,
+      [language, telegram_id]
+    );
+
+    if (result.rows.length === 0) {
+      // No global account yet (e.g. before first registration) —
+      // nothing to persist server-side yet, but not an error; the
+      // in-app localStorage preference still applies.
+      return res.json({ language });
+    }
+
+    res.json({ language: result.rows[0].language });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });

@@ -77,7 +77,7 @@ export const cafeOwnerAuth = async (req, res, next) => {
   try {
     const { telegram_id } = req.telegramUser;
     const result = await pool.query(
-      'SELECT id, cafe_id, name, phone FROM cafe_owners WHERE telegram_id = $1',
+      'SELECT id, cafe_id, name, phone, language FROM cafe_owners WHERE telegram_id = $1',
       [telegram_id]
     );
     if (result.rows.length === 0) {

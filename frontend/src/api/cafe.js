@@ -28,3 +28,8 @@ export const getCafeSettings = () => request('GET', '/cafe/settings');
 // (via /admin/cafes/:id/fee-restart), and this simply reflects the
 // current period since that last reset.
 export const getFeeStats = () => request('GET', '/cafe/fee-stats');
+
+// Persists the cafe owner's chosen language server-side, so
+// Telegram bot push notifications match it too, not just the
+// in-app UI text.
+export const setLanguage = (language) => request('PATCH', '/cafe/language', { language });

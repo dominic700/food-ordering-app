@@ -4,6 +4,7 @@ import telegram from './telegram.js';
 import { initApp } from './api/auth.js';
 import useStore from './store/useStore.js';
 import Spinner from './components/Spinner.jsx';
+import { syncLanguageFromAccount } from './hooks/useLanguage.js';
 
 // ── Global error boundary ─────────────────────────────────────
 // Shows the actual crash error on screen instead of a white page.
@@ -124,6 +125,11 @@ function AppEntry() {
         const phone  = user?.phone_number || null;
         const result = await initApp(phone);
         setAuth(result.role, result.account);
+        // Hydrate the in-app language from whatever was last saved
+        // server-side for this account (covers a fresh device with
+        // no localStorage yet). Admin accounts have no `language`
+        // field, so this safely no-ops for them.
+        syncLanguageFromAccount(result.account?.language);
       } catch (err) {
         setError(err.message);
       } finally {

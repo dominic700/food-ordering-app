@@ -236,17 +236,17 @@ router.post('/', telegramAuth, async (req, res) => {
     }
 
     const ownerResult = await client.query(
-      'SELECT telegram_id FROM cafe_owners WHERE cafe_id = $1', [cafe_id]
+      'SELECT telegram_id, language FROM cafe_owners WHERE cafe_id = $1', [cafe_id]
     );
 
     await client.query('COMMIT');
 
     if (ownerResult.rows.length > 0) {
-      const ownerTelegramId = ownerResult.rows[0].telegram_id;
+      const { telegram_id: ownerTelegramId, language: ownerLang } = ownerResult.rows[0];
 
       sendTelegramMessage(
         ownerTelegramId,
-        newOrderMessage(order, customerName, resolvedItems)
+        newOrderMessage(order, customerName, resolvedItems, ownerLang)
       );
 
       createNotification({
@@ -368,7 +368,7 @@ router.patch('/:orderId/approve', telegramAuth, cafeOwnerAuth, async (req, res) 
     const order = result.rows[0];
 
     const infoResult = await pool.query(`
-      SELECT ga.telegram_id, c.name AS cafe_name
+      SELECT ga.telegram_id, ga.language, c.name AS cafe_name
       FROM orders o
       JOIN per_cafe_accounts pca ON o.per_cafe_account_id = pca.id
       JOIN global_accounts ga ON pca.global_account_id = ga.id
@@ -377,8 +377,8 @@ router.patch('/:orderId/approve', telegramAuth, cafeOwnerAuth, async (req, res) 
     `, [order.id]);
 
     if (infoResult.rows.length > 0) {
-      const { telegram_id, cafe_name } = infoResult.rows[0];
-      sendTelegramMessage(telegram_id, orderApprovedMessage(order, cafe_name));
+      const { telegram_id, language, cafe_name } = infoResult.rows[0];
+      sendTelegramMessage(telegram_id, orderApprovedMessage(order, cafe_name, language));
       createNotification({
         telegramId: telegram_id,
         cafeId:     cafe_id,
@@ -441,9 +441,11 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
         ga.telegram_id   AS customer_telegram_id,
         ga.name          AS customer_name,
         ga.phone         AS customer_phone,
+        ga.language      AS customer_language,
         c.name           AS cafe_name,
         co.phone         AS owner_phone,
-        co.telegram_id   AS owner_telegram_id
+        co.telegram_id   AS owner_telegram_id,
+        co.language      AS owner_language
       FROM per_cafe_accounts pca
       JOIN global_accounts ga ON pca.global_account_id = ga.id
       JOIN cafes c            ON c.id = pca.cafe_id
@@ -455,8 +457,8 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
 
     if (infoResult.rows.length > 0) {
       const {
-        customer_telegram_id, customer_name, customer_phone,
-        cafe_name, owner_phone, owner_telegram_id
+        customer_telegram_id, customer_name, customer_phone, customer_language,
+        cafe_name, owner_phone, owner_telegram_id, owner_language
       } = infoResult.rows[0];
 
       const isTransfer = cancelledOrder.payment_method === 'transfer';
@@ -464,7 +466,7 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
       // Notify customer — with transfer refund instructions if applicable
       sendTelegramMessage(
         customer_telegram_id,
-        orderCancelledMessage(cancelledOrder, cafe_name, owner_phone, 'cafe')
+        orderCancelledMessage(cancelledOrder, cafe_name, owner_phone, 'cafe', customer_language)
       );
 
       createNotification({
@@ -481,7 +483,7 @@ router.patch('/:orderId/cancel', telegramAuth, cafeOwnerAuth, async (req, res) =
       if (isTransfer) {
         sendTelegramMessage(
           owner_telegram_id,
-          transferRefundReminderMessage(cancelledOrder, customer_name, customer_phone, 'cafe')
+          transferRefundReminderMessage(cancelledOrder, customer_name, customer_phone, 'cafe', owner_language)
         );
 
         createNotification({

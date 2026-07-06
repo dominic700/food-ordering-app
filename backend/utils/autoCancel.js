@@ -17,9 +17,11 @@ export async function autoCancelOrders() {
         ga.telegram_id   AS customer_telegram_id,
         ga.name          AS customer_name,
         ga.phone         AS customer_phone,
+        ga.language      AS customer_language,
         c.name           AS cafe_name,
         co.phone         AS owner_phone,
-        co.telegram_id   AS owner_telegram_id
+        co.telegram_id   AS owner_telegram_id,
+        co.language      AS owner_language
       FROM orders o
       JOIN per_cafe_accounts pca ON o.per_cafe_account_id = pca.id
       JOIN global_accounts ga    ON pca.global_account_id = ga.id
@@ -67,7 +69,7 @@ export async function autoCancelOrders() {
       // Wallet orders: mention automatic balance refund
       sendTelegramMessage(
         order.customer_telegram_id,
-        orderCancelledMessage(order, order.cafe_name, order.owner_phone, 'auto')
+        orderCancelledMessage(order, order.cafe_name, order.owner_phone, 'auto', order.customer_language)
       );
 
       createNotification({
@@ -86,7 +88,7 @@ export async function autoCancelOrders() {
       if (isTransfer) {
         sendTelegramMessage(
           order.owner_telegram_id,
-          transferRefundReminderMessage(order, order.customer_name, order.customer_phone, 'auto')
+          transferRefundReminderMessage(order, order.customer_name, order.customer_phone, 'auto', order.owner_language)
         );
 
         createNotification({

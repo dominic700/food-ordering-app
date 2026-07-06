@@ -85,18 +85,18 @@ router.post('/webhook/verify', async (req, res) => {
 
     if (status === 'verified') {
       const info = await pool.query(`
-        SELECT ga.telegram_id, c.name AS cafe_name, pca.cafe_id
+        SELECT ga.telegram_id, ga.language, c.name AS cafe_name, pca.cafe_id
         FROM per_cafe_accounts pca
         JOIN global_accounts ga ON pca.global_account_id = ga.id
         JOIN cafes c ON pca.cafe_id = c.id
         WHERE pca.id = $1
       `, [deposit.per_cafe_account_id]);
       if (info.rows.length > 0) {
-        const { telegram_id, cafe_name, cafe_id } = info.rows[0];
+        const { telegram_id, language, cafe_name, cafe_id } = info.rows[0];
 
         sendTelegramMessage(
           telegram_id,
-          depositVerifiedMessage(deposit.amount, cafe_name)
+          depositVerifiedMessage(deposit.amount, cafe_name, language)
         );
 
         createNotification({
