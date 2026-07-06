@@ -80,7 +80,7 @@ export default function PromoSlider({ slides = [], fallbackSlides = [] }) {
                 {slide.title && (
                   <div style={{
                     position: 'absolute',
-                    bottom: 16,
+                    bottom: total > 1 ? 34 : 16,
                     left: 16,
                     right: 16,
                   }}>
@@ -156,14 +156,18 @@ export default function PromoSlider({ slides = [], fallbackSlides = [] }) {
         ))}
       </div>
 
-      {/* Dot indicators */}
+      {/* Dot indicators — floats over the image instead of taking up
+          its own solid strip, so the image fills the full card. */}
       {total > 1 && (
         <div style={{
+          position: 'absolute',
+          bottom: 10,
+          left: 0,
+          right: 0,
           display: 'flex',
           justifyContent: 'center',
           gap: 6,
-          padding: '10px',
-          background: '#1a1a1a',
+          background: 'transparent',
         }}>
           {displaySlides.map((_, i) => (
             <div
@@ -173,7 +177,8 @@ export default function PromoSlider({ slides = [], fallbackSlides = [] }) {
                 width: i === current ? 20 : 8,
                 height: 8,
                 borderRadius: i === current ? 4 : '50%',
-                background: i === current ? 'var(--red)' : '#555',
+                background: i === current ? 'var(--red)' : 'rgba(255,255,255,0.6)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
               }}

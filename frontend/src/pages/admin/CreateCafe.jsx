@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCafe } from '../../api/admin.js';
+import { createCafe, uploadCafeLogo } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import telegram from '../../telegram.js';
 import LangToggle from '../../components/LangToggle.jsx';
@@ -17,15 +17,44 @@ const EMPTY = {
   owner_phone: '',
 };
 
+const BACKEND_URL = import.meta.env.VITE_API_URL || '';
+
+function getImageUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return `${BACKEND_URL}${url}`;
+}
+
 export default function CreateCafe() {
   const navigate = useNavigate();
   const { t }     = useLanguage();
   const [form, setForm] = useState(EMPTY);
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef(null);
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  async function handleLogoFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      telegram.alert(t('imageSizeLimit'));
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const { image_url } = await uploadCafeLogo(file);
+      set('logo_url', image_url);
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
   }
 
   async function handleCreate() {
@@ -175,20 +204,43 @@ export default function CreateCafe() {
 
         <div className="divider" style={{ margin: '20px 0' }} />
 
-        {/* Cafe Picture — URL input (no real upload) */}
+        {/* Cafe Picture — click to upload, or paste a URL below */}
         <div className="input-group">
           <label className="input-label">{t('cafePictureOptional')}</label>
           <div
+            onClick={() => !uploadingLogo && fileInputRef.current?.click()}
             style={{
               border: '2px dashed var(--border)', borderRadius: 12,
               padding: '24px 16px', textAlign: 'center', marginBottom: 12,
-              cursor: 'pointer', background: 'var(--bg)',
+              cursor: uploadingLogo ? 'default' : 'pointer', background: 'var(--bg)',
             }}
           >
-            <div style={{ fontSize: 28, color: 'var(--red)', marginBottom: 8 }}>☁️</div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('uploadCafePicture')}</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('imageFormatHintPng')}</div>
+            {uploadingLogo ? (
+              <div className="spinner" style={{ margin: '0 auto' }} />
+            ) : form.logo_url ? (
+              <>
+                <img
+                  src={getImageUrl(form.logo_url)}
+                  alt="Cafe logo"
+                  style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, marginBottom: 8 }}
+                />
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('changeImage')}</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 28, color: 'var(--red)', marginBottom: 8 }}>☁️</div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('uploadCafePicture')}</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('imageFormatHintPng')}</div>
+              </>
+            )}
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            style={{ display: 'none' }}
+            onChange={handleLogoFile}
+          />
           <input
             className="input"
             style={{ paddingLeft: 14 }}
@@ -207,7 +259,7 @@ export default function CreateCafe() {
               border: '1.5px solid var(--border)',
             }}>
               {form.logo_url ? (
-                <img src={form.logo_url} alt="Preview" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} onError={e => e.target.style.display = 'none'} />
+                <img src={getImageUrl(form.logo_url)} alt="Preview" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} onError={e => e.target.style.display = 'none'} />
               ) : (
                 <div style={{
                   height: 180, background: `linear-gradient(135deg, #1a1a1a, #333)`,

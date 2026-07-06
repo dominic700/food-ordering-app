@@ -549,12 +549,12 @@ const translations = {
     noCafesDesc:      'አሁን ንቁ ካፌዎች የሉም። ቆይ ይሞክሩ።',
 
     // ── Customer: Menu ───────────────────────────────────────
-    menu:             'ምናሌ',
+    menu:             'ሜኑ',
     addToCart:        'ወደ ቅርጫት ጨምር',
     outOfStock:       'አይገኝም',
-    noItems:          'ምንም ዕቃዎች የሉም',
-    noItemsDesc:      'ይህ ካፌ ምንም የምናሌ ዕቃዎች የለውም።',
-    searchMenu:       'ምናሌ ፈልግ...',
+    noItems:          'ምንም ትእዛዝ የሉም',
+    noItemsDesc:      'ይህ ካፌ ምንም የሜኑ ዕቃዎች የለውም።',
+    searchMenu:       'ሜኑ ፈልግ...',
 
     // ── Customer: Cart ───────────────────────────────────────
     cart:             'ቅርጫቴ',
