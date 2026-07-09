@@ -18,6 +18,7 @@ import pool                from './db/connection.js';
 import { startAutoCancelJob } from './utils/autoCancel.js';
 import { detectRole, saveCustomer } from './utils/roles.js';
 import { buildWelcome, buildPostRegistration, buildHelp } from './utils/messages.js';
+import { handleRefundCallback, handleRefundTextReply } from './utils/refundFlow.js';
 
 dotenv.config();
 
@@ -133,7 +134,17 @@ function startBot() {
     return;
   }
 
-  const bot = new TelegramBot(TOKEN, { polling: true });
+  // polling: { params: { timeout: 10 } } uses a shorter long-poll
+  // window than the default (which can be 30-50s) — this means if
+  // this instance dies or gets redeployed, Telegram frees up the
+  // getUpdates slot for the next instance much sooner, shrinking the
+  // window where two instances briefly overlap and produce
+  // "409 Conflict: terminated by other getUpdates request".
+  // deleteWebHook() also clears out any webhook that might have been
+  // set previously by mistake — a webhook and polling can't both be
+  // active for the same bot token.
+  const bot = new TelegramBot(TOKEN, { polling: { params: { timeout: 10 } } });
+  bot.deleteWebHook().catch(err => console.error('deleteWebHook error:', err.message));
 
   // Make bot instance available for sendTelegramMessage() in utils/telegramBot.js
   // by storing it on the global so existing route files can reach it.
@@ -219,9 +230,37 @@ function startBot() {
     await bot.sendMessage(msg.chat.id, text, options);
   });
 
+  // ── Callback queries (inline button taps) ──────────────────
+  // Currently only the transfer-refund flow uses inline buttons
+  // (Telebirr/Bank choice, "Mark as Refunded"). handleRefundCallback
+  // returns false for anything it doesn't recognize, so this stays
+  // a safe place to add other button-driven features later.
+  bot.on('callback_query', async (query) => {
+    try {
+      const handled = await handleRefundCallback(bot, query);
+      if (!handled) {
+        await bot.answerCallbackQuery(query.id);
+      }
+    } catch (err) {
+      console.error('callback_query error:', err.message);
+      try { await bot.answerCallbackQuery(query.id); } catch {}
+    }
+  });
+
   // ── Unknown messages ──────────────────────────────────────
   bot.on('message', async (msg) => {
     if (msg.text?.startsWith('/') || msg.contact) return;
+
+    // If this customer has a refund request awaiting their
+    // Telebirr/bank details, treat this plain-text message as that
+    // instead of falling through to the generic hint below.
+    try {
+      const handled = await handleRefundTextReply(bot, msg);
+      if (handled) return;
+    } catch (err) {
+      console.error('handleRefundTextReply error:', err.message);
+    }
+
     await bot.sendMessage(
       msg.chat.id,
       '👋 Send /start to open the app or /help to see available commands.'
