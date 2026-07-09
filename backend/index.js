@@ -18,7 +18,6 @@ import pool                from './db/connection.js';
 import { startAutoCancelJob } from './utils/autoCancel.js';
 import { detectRole, saveCustomer } from './utils/roles.js';
 import { buildWelcome, buildPostRegistration, buildHelp } from './utils/messages.js';
-import { handleRefundCallback, handleRefundTextReply } from './utils/refundFlow.js';
 
 dotenv.config();
 
@@ -230,37 +229,9 @@ function startBot() {
     await bot.sendMessage(msg.chat.id, text, options);
   });
 
-  // ── Callback queries (inline button taps) ──────────────────
-  // Currently only the transfer-refund flow uses inline buttons
-  // (Telebirr/Bank choice, "Mark as Refunded"). handleRefundCallback
-  // returns false for anything it doesn't recognize, so this stays
-  // a safe place to add other button-driven features later.
-  bot.on('callback_query', async (query) => {
-    try {
-      const handled = await handleRefundCallback(bot, query);
-      if (!handled) {
-        await bot.answerCallbackQuery(query.id);
-      }
-    } catch (err) {
-      console.error('callback_query error:', err.message);
-      try { await bot.answerCallbackQuery(query.id); } catch {}
-    }
-  });
-
   // ── Unknown messages ──────────────────────────────────────
   bot.on('message', async (msg) => {
     if (msg.text?.startsWith('/') || msg.contact) return;
-
-    // If this customer has a refund request awaiting their
-    // Telebirr/bank details, treat this plain-text message as that
-    // instead of falling through to the generic hint below.
-    try {
-      const handled = await handleRefundTextReply(bot, msg);
-      if (handled) return;
-    } catch (err) {
-      console.error('handleRefundTextReply error:', err.message);
-    }
-
     await bot.sendMessage(
       msg.chat.id,
       '👋 Send /start to open the app or /help to see available commands.'
