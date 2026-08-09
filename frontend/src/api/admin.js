@@ -7,6 +7,7 @@ export const getCafeDetail = (cafeId) => request('GET', `/admin/cafes/${cafeId}`
 export const createCafe    = (data) => request('POST', '/admin/cafes', data);
 export const updateCafe    = (cafeId, data) => request('PATCH', `/admin/cafes/${cafeId}`, data);
 export const toggleCafe    = (cafeId) => request('PATCH', `/admin/cafes/${cafeId}/toggle`);
+export const deleteCafe    = (cafeId) => request('DELETE', `/admin/cafes/${cafeId}`);
 
 // ── Fee collection ────────────────────────────────────────────
 export const getFeeStats    = (cafeId) => request('GET', `/admin/cafes/${cafeId}/fee-stats`);

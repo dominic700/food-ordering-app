@@ -15,6 +15,10 @@ const EMPTY = {
   owner_telegram_id: '',
   owner_name: '',
   owner_phone: '',
+  cbe_account_name: '',
+  cbe_account_number: '',
+  telebirr_name: '',
+  telebirr_phone: '',
 };
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || '';
@@ -65,14 +69,18 @@ export default function CreateCafe() {
     setSaving(true);
     try {
       await createCafe({
-        name:              form.name.trim(),
-        address:           form.address.trim(),
-        phone:             form.phone.trim(),
-        description:       form.description.trim(),
-        service_fee:       parseFloat(form.service_fee) || 0,
-        owner_telegram_id: form.owner_telegram_id.trim(),
-        owner_name:        form.owner_name.trim(),
-        owner_phone:       form.owner_phone.trim(),
+        name:               form.name.trim(),
+        address:            form.address.trim(),
+        phone:              form.phone.trim(),
+        description:        form.description.trim(),
+        service_fee:        parseFloat(form.service_fee) || 0,
+        owner_telegram_id:  form.owner_telegram_id.trim(),
+        owner_name:         form.owner_name.trim(),
+        owner_phone:        form.owner_phone.trim(),
+        cbe_account_name:   form.cbe_account_name.trim(),
+        cbe_account_number: form.cbe_account_number.trim(),
+        telebirr_name:      form.telebirr_name.trim(),
+        telebirr_phone:     form.telebirr_phone.trim(),
       });
       telegram.haptic('success');
       telegram.alert(t('cafeCreatedSuccess'));
@@ -199,6 +207,46 @@ export default function CreateCafe() {
               value={form.owner_phone}
               onChange={e => set('owner_phone', e.target.value)}
             />
+          </div>
+        </div>
+
+        <div className="divider" style={{ margin: '20px 0' }} />
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>💳 Payment Account Info</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.5 }}>
+          These details will be shown to customers when they choose Telebirr or CBE Birr as payment method.
+        </div>
+
+        {/* CBE */}
+        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>🏦 CBE Birr Account</div>
+        <div className="input-group">
+          <label className="input-label">Account Holder Name</label>
+          <div className="input-wrap">
+            <span className="input-icon">👤</span>
+            <input className="input" placeholder="Full name on CBE account" value={form.cbe_account_name} onChange={e => set('cbe_account_name', e.target.value)} />
+          </div>
+        </div>
+        <div className="input-group">
+          <label className="input-label">CBE Account Number</label>
+          <div className="input-wrap">
+            <span className="input-icon">🔢</span>
+            <input className="input" placeholder="e.g. 1000123456789" value={form.cbe_account_number} onChange={e => set('cbe_account_number', e.target.value)} />
+          </div>
+        </div>
+
+        {/* Telebirr */}
+        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text2)', marginBottom: 8, marginTop: 8 }}>📱 Telebirr Account</div>
+        <div className="input-group">
+          <label className="input-label">Full Name</label>
+          <div className="input-wrap">
+            <span className="input-icon">👤</span>
+            <input className="input" placeholder="Full name on Telebirr" value={form.telebirr_name} onChange={e => set('telebirr_name', e.target.value)} />
+          </div>
+        </div>
+        <div className="input-group">
+          <label className="input-label">Telebirr Phone Number</label>
+          <div className="input-wrap">
+            <span className="input-icon">📱</span>
+            <input className="input" placeholder="+251 9XX XXX XXX" value={form.telebirr_phone} onChange={e => set('telebirr_phone', e.target.value)} />
           </div>
         </div>
 

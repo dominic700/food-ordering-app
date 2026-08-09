@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCafes, toggleCafe } from '../../api/admin.js';
+import { getCafes, toggleCafe, deleteCafe } from '../../api/admin.js';
 import AdminBottomNav from '../../components/AdminBottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -38,6 +38,19 @@ export default function AdminDashboard() {
   async function handleToggle(cafe) {
     try {
       await toggleCafe(cafe.id);
+      telegram.haptic();
+      setMenuOpen(null);
+      await load();
+    } catch (err) {
+      telegram.alert(err.message);
+    }
+  }
+
+  async function handleDelete(cafe) {
+    const confirmed = window.confirm(`⚠️ Permanently delete "${cafe.name}"?\n\nThis will delete all orders, menus, customers, and data for this cafe. This cannot be undone.`);
+    if (!confirmed) return;
+    try {
+      await deleteCafe(cafe.id);
       telegram.haptic();
       setMenuOpen(null);
       await load();
@@ -182,10 +195,16 @@ export default function AdminDashboard() {
                     👁️ View Details
                   </div>
                   <div
-                    style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: cafe.is_active ? '#f97316' : '#22c55e' }}
+                    style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: cafe.is_active ? '#f97316' : '#22c55e', borderBottom: '1px solid var(--border)' }}
                     onClick={() => handleToggle(cafe)}
                   >
                     {cafe.is_active ? '⏸️ Deactivate' : '▶️ Activate'}
+                  </div>
+                  <div
+                    style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', color: '#e63946' }}
+                    onClick={() => handleDelete(cafe)}
+                  >
+                    🗑️ Delete Permanently
                   </div>
                 </div>
               )}

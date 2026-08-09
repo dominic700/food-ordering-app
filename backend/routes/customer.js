@@ -34,9 +34,12 @@ router.get('/account/:cafeId', async (req, res) => {
     const { cafeId }      = req.params;
 
     const result = await pool.query(`
-      SELECT pca.*, ga.name, ga.phone
+      SELECT pca.*, ga.name, ga.phone,
+             c.cbe_account_name, c.cbe_account_number,
+             c.telebirr_name, c.telebirr_phone
       FROM per_cafe_accounts pca
       JOIN global_accounts ga ON pca.global_account_id = ga.id
+      JOIN cafes c ON pca.cafe_id = c.id
       WHERE ga.telegram_id = $1 AND pca.cafe_id = $2
     `, [telegram_id, cafeId]);
 

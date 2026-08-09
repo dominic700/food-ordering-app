@@ -17,15 +17,19 @@ CREATE TABLE admins (
 
 -- ── 2. CAFES ─────────────────────────────────────────────────
 CREATE TABLE cafes (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name        VARCHAR(100) NOT NULL,
-    description TEXT,
-    logo_url    TEXT,
-    address     TEXT,
-    phone       VARCHAR(20),
-    service_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
-    is_active   BOOLEAN DEFAULT TRUE,
-    created_at  TIMESTAMP DEFAULT NOW()
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name               VARCHAR(100) NOT NULL,
+    description        TEXT,
+    logo_url           TEXT,
+    address            TEXT,
+    phone              VARCHAR(20),
+    service_fee        NUMERIC(10,2) NOT NULL DEFAULT 0,
+    is_active          BOOLEAN DEFAULT TRUE,
+    cbe_account_name   VARCHAR(100),
+    cbe_account_number VARCHAR(50),
+    telebirr_name      VARCHAR(100),
+    telebirr_phone     VARCHAR(20),
+    created_at         TIMESTAMP DEFAULT NOW()
 );
 
 -- ── 3. CAFE OWNERS ───────────────────────────────────────────

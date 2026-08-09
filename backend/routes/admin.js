@@ -141,7 +141,9 @@ router.post('/cafes', async (req, res) => {
     const {
       name, description, logo_url, address,
       phone, service_fee,
-      owner_telegram_id, owner_name, owner_phone
+      owner_telegram_id, owner_name, owner_phone,
+      cbe_account_name, cbe_account_number,
+      telebirr_name, telebirr_phone
     } = req.body;
 
     if (!name || !owner_telegram_id) {
@@ -150,9 +152,12 @@ router.post('/cafes', async (req, res) => {
     }
 
     const cafe = await client.query(`
-      INSERT INTO cafes (name, description, logo_url, address, phone, service_fee)
-      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [name, description, logo_url || null, address, phone, service_fee || 0]);
+      INSERT INTO cafes (name, description, logo_url, address, phone, service_fee,
+                         cbe_account_name, cbe_account_number, telebirr_name, telebirr_phone)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
+    `, [name, description, logo_url || null, address, phone, service_fee || 0,
+        cbe_account_name || null, cbe_account_number || null,
+        telebirr_name || null, telebirr_phone || null]);
 
     await client.query(`
       INSERT INTO cafe_owners (cafe_id, telegram_id, name, phone)
@@ -184,18 +189,24 @@ router.post('/cafes', async (req, res) => {
 router.patch('/cafes/:cafeId', async (req, res) => {
   try {
     const { cafeId } = req.params;
-    const { name, description, address, phone, service_fee, logo_url } = req.body;
+    const { name, description, address, phone, service_fee, logo_url,
+            cbe_account_name, cbe_account_number, telebirr_name, telebirr_phone } = req.body;
 
     const result = await pool.query(`
       UPDATE cafes
-      SET name        = COALESCE($1, name),
-          description = COALESCE($2, description),
-          address     = COALESCE($3, address),
-          phone       = COALESCE($4, phone),
-          service_fee = COALESCE($5, service_fee),
-          logo_url    = COALESCE($6, logo_url)
-      WHERE id = $7 RETURNING *
-    `, [name, description, address, phone, service_fee, logo_url, cafeId]);
+      SET name               = COALESCE($1, name),
+          description        = COALESCE($2, description),
+          address            = COALESCE($3, address),
+          phone              = COALESCE($4, phone),
+          service_fee        = COALESCE($5, service_fee),
+          logo_url           = COALESCE($6, logo_url),
+          cbe_account_name   = COALESCE($7, cbe_account_name),
+          cbe_account_number = COALESCE($8, cbe_account_number),
+          telebirr_name      = COALESCE($9, telebirr_name),
+          telebirr_phone     = COALESCE($10, telebirr_phone)
+      WHERE id = $11 RETURNING *
+    `, [name, description, address, phone, service_fee, logo_url,
+        cbe_account_name, cbe_account_number, telebirr_name, telebirr_phone, cafeId]);
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
     res.json(result.rows[0]);
@@ -217,6 +228,24 @@ router.patch('/cafes/:cafeId/toggle', async (req, res) => {
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
     res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// ── DELETE /api/admin/cafes/:cafeId ──────────────────────────
+// Permanently deletes a cafe and all related data (cascade).
+router.delete('/cafes/:cafeId', async (req, res) => {
+  try {
+    const { cafeId } = req.params;
+    const result = await pool.query(
+      `DELETE FROM cafes WHERE id = $1 RETURNING id, name`,
+      [cafeId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
+    res.json({ success: true, deleted: result.rows[0] });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: 'Server error' });

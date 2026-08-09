@@ -279,6 +279,45 @@ export default function Cart() {
                 ))}
               </select>
             </div>
+
+            {/* CBE payment info */}
+            {transferProvider === 'cbe_birr' && (cafeAccount?.cbe_account_name || cafeAccount?.cbe_account_number) && (
+              <div style={{ background: '#e8f4fd', border: '1.5px solid #3b82f6', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8', marginBottom: 6 }}>🏦 Send to CBE Birr Account</div>
+                {cafeAccount.cbe_account_name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <span style={{ color: '#374151' }}>Account Name</span>
+                    <span style={{ fontWeight: 700, color: '#1e3a5f' }}>{cafeAccount.cbe_account_name}</span>
+                  </div>
+                )}
+                {cafeAccount.cbe_account_number && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: '#374151' }}>Account Number</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#1e3a5f', letterSpacing: 1 }}>{cafeAccount.cbe_account_number}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Telebirr payment info */}
+            {transferProvider === 'telebirr' && (cafeAccount?.telebirr_name || cafeAccount?.telebirr_phone) && (
+              <div style={{ background: '#fdf3e8', border: '1.5px solid #f97316', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 6 }}>📱 Send to Telebirr</div>
+                {cafeAccount.telebirr_name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <span style={{ color: '#374151' }}>Full Name</span>
+                    <span style={{ fontWeight: 700, color: '#7c2d12' }}>{cafeAccount.telebirr_name}</span>
+                  </div>
+                )}
+                {cafeAccount.telebirr_phone && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: '#374151' }}>Phone Number</span>
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#7c2d12' }}>{cafeAccount.telebirr_phone}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="input-group" style={{ marginBottom: 0 }}>
               <label className="input-label">{t('transactionNo')}</label>
               <input
