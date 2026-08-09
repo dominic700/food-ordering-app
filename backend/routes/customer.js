@@ -11,7 +11,8 @@ router.use(telegramAuth);
 router.get('/cafes', async (req, res) => {
   try {
     const cafes = await pool.query(`
-      SELECT id, name, description, logo_url, address, phone, service_fee
+      SELECT id, name, description, logo_url, address, phone, service_fee,
+             cbe_account_name, cbe_account_number, telebirr_name, telebirr_phone
       FROM cafes WHERE is_active = true ORDER BY name ASC
     `);
     const promos = await pool.query(`
