@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore.js';
-import { getDashboard, getCafeSettings, getFeeStats } from '../../api/cafe.js';
+import { getDashboard, getCafeSettings, getFeeStats, toggleCafe, resetRevenue, getRevenueHistory } from '../../api/cafe.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import NotificationBell from '../../components/NotificationBell.jsx';
 import LangToggle from '../../components/LangToggle.jsx';
@@ -24,6 +24,11 @@ export default function CafeProfile() {
   const [loading, setLoading] = useState(true);
   const [feeStats, setFeeStats] = useState(null);
   const [loadingFee, setLoadingFee] = useState(true);
+  const [isActive, setIsActive]     = useState(true);
+  const [toggling, setToggling]     = useState(false);
+  const [resetting, setResetting]   = useState(false);
+  const [history, setHistory]       = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +38,7 @@ export default function CafeProfile() {
       ]);
       setStats(dashData);
       setSettings(settingsData);
+      setIsActive(settingsData?.is_active ?? true);
     } catch (err) {
       console.error(err);
     } finally {
@@ -54,7 +60,55 @@ export default function CafeProfile() {
     }
   }, []);
 
-  useEffect(() => { load(); loadFeeStats(); }, [load, loadFeeStats]);
+  const loadHistory = useCallback(async () => {
+    try {
+      const h = await getRevenueHistory();
+      setHistory(h);
+    } catch (err) {
+      console.error('history error:', err.message);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); loadFeeStats(); loadHistory(); }, [load, loadFeeStats, loadHistory]);
+
+  async function handleReset() {
+    const confirmed = window.confirm(
+      '🔄 Reset your 30-day income counter?\n\nThis will save the current period as a snapshot in your history (last 6 months kept).'
+    );
+    if (!confirmed) return;
+    setResetting(true);
+    try {
+      await resetRevenue();
+      telegram.haptic('success');
+      await Promise.all([load(), loadHistory()]);
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function handleToggle() {
+    const action = isActive ? 'deactivate' : 'activate';
+    const confirmed = window.confirm(
+      isActive
+        ? '⚠️ Deactivate your cafe? Customers will not be able to place orders until you reactivate.'
+        : '✅ Reactivate your cafe? Customers will be able to place orders again.'
+    );
+    if (!confirmed) return;
+    setToggling(true);
+    try {
+      const result = await toggleCafe();
+      setIsActive(result.is_active);
+      telegram.haptic('success');
+    } catch (err) {
+      telegram.alert(err.message);
+    } finally {
+      setToggling(false);
+    }
+  }
 
   function handleLogout() {
     setAuth(null, null);
@@ -102,8 +156,12 @@ export default function CafeProfile() {
                 <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>📍 {cafeAddress}</div>
               )}
               <div style={{ marginTop: 6 }}>
-                <span style={{ background: '#e8f5e9', color: '#22c55e', borderRadius: 12, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
-                  {t('activeStatus')}
+                <span style={{
+                  background: isActive ? '#e8f5e9' : '#fff3e0',
+                  color: isActive ? '#22c55e' : '#f97316',
+                  borderRadius: 12, fontSize: 12, fontWeight: 700, padding: '3px 12px'
+                }}>
+                  {isActive ? t('activeStatus') : '⏸️ Inactive'}
                 </span>
               </div>
             </div>
@@ -167,6 +225,64 @@ export default function CafeProfile() {
             <span style={{ color: 'var(--text2)' }}>{t('depositsReceived')}</span>
             <span style={{ fontWeight: 700 }}>{parseFloat(stats?.deposits_30d || 0).toFixed(2)} {t('etb')}</span>
           </div>
+          <div className="divider" style={{ margin: '14px 0 10px' }} />
+          <button
+            onClick={handleReset}
+            disabled={resetting}
+            style={{
+              width: '100%', padding: '11px', borderRadius: 10, border: '1.5px solid #3b82f6',
+              background: resetting ? 'var(--bg)' : '#eff6ff', color: '#1d4ed8',
+              fontWeight: 700, fontSize: 14, cursor: resetting ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            {resetting ? '⏳ Saving...' : '🔄 Reset 30-Day Counter & Save'}
+          </button>
+        </div>
+
+        {/* Last 6 months history */}
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>📊 Income History (Last 6 Months)</div>
+          {loadingHistory ? (
+            <div className="spinner" />
+          ) : history.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text2)', textAlign: 'center', padding: '10px 0' }}>
+              No history yet. Reset your 30-day counter to save a snapshot.
+            </div>
+          ) : (
+            history.map((h, i) => (
+              <div key={h.id} style={{
+                borderBottom: i < history.length - 1 ? '1px solid var(--border)' : 'none',
+                paddingBottom: i < history.length - 1 ? 14 : 0,
+                marginBottom: i < history.length - 1 ? 14 : 0,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>
+                    {new Date(h.period_start).toLocaleDateString()} — {new Date(h.period_end).toLocaleDateString()}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{h.orders_count} orders</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text2)' }}>Total Revenue</span>
+                  <span style={{ fontWeight: 800, color: 'var(--red)', fontFamily: 'var(--font-mono)' }}>
+                    {parseFloat(h.revenue_30d).toFixed(2)} ETB
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>💛 Wallet / Credit</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#3b82f6', fontFamily: 'var(--font-mono)' }}>
+                    {parseFloat(h.wallet_revenue).toFixed(2)} ETB
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>💵 Cash & Transfer</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#22c55e', fontFamily: 'var(--font-mono)' }}>
+                    {parseFloat(h.instant_revenue).toFixed(2)} ETB
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Current collection period — items / revenue / fee since the
@@ -232,6 +348,19 @@ export default function CafeProfile() {
               <div className="profile-chevron">›</div>
             </div>
           ))}
+          <div
+            className="profile-menu-item"
+            onClick={handleToggle}
+            style={{ opacity: toggling ? 0.6 : 1 }}
+          >
+            <div className="profile-menu-icon" style={{ background: isActive ? '#fff3e0' : '#e8f5e9' }}>
+              {isActive ? '⏸️' : '▶️'}
+            </div>
+            <div className="profile-menu-label" style={{ color: isActive ? '#f97316' : '#22c55e' }}>
+              {toggling ? 'Please wait...' : isActive ? 'Deactivate Cafe' : 'Activate Cafe'}
+            </div>
+            <div className="profile-chevron">›</div>
+          </div>
           <div className="profile-menu-item" onClick={handleLogout} style={{ borderBottom: 'none' }}>
             <div className="profile-menu-icon" style={{ background: '#ffeaea' }}>🚪</div>
             <div className="profile-menu-label" style={{ color: 'var(--red)' }}>{t('logout')}</div>

@@ -215,7 +215,25 @@ router.get('/settings', async (req, res) => {
   try {
     const { cafe_id } = req.cafeOwner;
     const result = await pool.query(
-      'SELECT id, name, service_fee FROM cafes WHERE id = $1',
+      'SELECT id, name, service_fee, is_active FROM cafes WHERE id = $1',
+      [cafe_id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// ── PATCH /api/cafe/toggle ───────────────────────────────────
+// Cafe owner can deactivate or reactivate their own cafe.
+router.patch('/toggle', async (req, res) => {
+  try {
+    const { cafe_id } = req.cafeOwner;
+    const result = await pool.query(
+      'UPDATE cafes SET is_active = NOT is_active WHERE id = $1 RETURNING id, name, is_active',
       [cafe_id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
@@ -342,6 +360,86 @@ router.get('/fee-stats', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// ── POST /api/cafe/revenue/reset ────────────────────────────
+// Cafe owner resets their 30-day counter and saves a snapshot.
+// Keeps only the last 6 snapshots per cafe.
+router.post('/revenue/reset', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { cafe_id } = req.cafeOwner;
+
+    // Get current 30d stats to save as snapshot
+    const stats = await client.query(`
+      SELECT
+        (SELECT COALESCE(SUM(total),0) FROM orders
+          WHERE cafe_id = $1 AND status = 'approved'
+          AND created_at >= NOW() - INTERVAL '30 days') AS revenue_30d,
+        (SELECT COALESCE(SUM(total),0) FROM orders
+          WHERE cafe_id = $1 AND status = 'approved' AND payment_method = 'wallet'
+          AND created_at >= NOW() - INTERVAL '30 days') AS wallet_revenue,
+        (SELECT COALESCE(SUM(total),0) FROM orders
+          WHERE cafe_id = $1 AND status = 'approved' AND payment_method IN ('cash','transfer')
+          AND created_at >= NOW() - INTERVAL '30 days') AS instant_revenue,
+        (SELECT COALESCE(SUM(amount),0) FROM deposits
+          WHERE cafe_id = $1 AND status = 'verified'
+          AND created_at >= NOW() - INTERVAL '30 days') AS deposits_30d,
+        (SELECT COUNT(*) FROM orders
+          WHERE cafe_id = $1 AND status = 'approved'
+          AND created_at >= NOW() - INTERVAL '30 days') AS orders_count
+    `, [cafe_id]);
+
+    const s = stats.rows[0];
+
+    // Save snapshot
+    await client.query(`
+      INSERT INTO revenue_snapshots
+        (cafe_id, period_start, period_end, revenue_30d, wallet_revenue, instant_revenue, deposits_30d, orders_count)
+      VALUES ($1, NOW() - INTERVAL '30 days', NOW(), $2, $3, $4, $5, $6)
+    `, [cafe_id, s.revenue_30d, s.wallet_revenue, s.instant_revenue, s.deposits_30d, s.orders_count]);
+
+    // Keep only last 6 snapshots
+    await client.query(`
+      DELETE FROM revenue_snapshots
+      WHERE cafe_id = $1
+        AND id NOT IN (
+          SELECT id FROM revenue_snapshots
+          WHERE cafe_id = $1
+          ORDER BY created_at DESC
+          LIMIT 6
+        )
+    `, [cafe_id]);
+
+    res.json({ success: true, snapshot: s });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
+
+// ── GET /api/cafe/revenue/history ────────────────────────────
+// Returns last 6 saved snapshots for the cafe owner history view.
+router.get('/revenue/history', async (req, res) => {
+  try {
+    const { cafe_id } = req.cafeOwner;
+    const result = await pool.query(`
+      SELECT id, period_start, period_end, revenue_30d, wallet_revenue,
+             instant_revenue, deposits_30d, orders_count, created_at
+      FROM revenue_snapshots
+      WHERE cafe_id = $1
+      ORDER BY created_at DESC
+      LIMIT 6
+    `, [cafe_id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 // ── PATCH /api/cafe/language ───────────────────────────────────
 // Saves the cafe owner's chosen app language so server-sent

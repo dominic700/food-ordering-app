@@ -32,4 +32,7 @@ export const getFeeStats = () => request('GET', '/cafe/fee-stats');
 // Persists the cafe owner's chosen language server-side, so
 // Telegram bot push notifications match it too, not just the
 // in-app UI text.
-export const setLanguage = (language) => request('PATCH', '/cafe/language', { language });
+export const setLanguage   = (language) => request('PATCH', '/cafe/language', { language });
+export const toggleCafe       = () => request('PATCH', '/cafe/toggle');
+export const resetRevenue     = () => request('POST', '/cafe/revenue/reset');
+export const getRevenueHistory = () => request('GET', '/cafe/revenue/history');
