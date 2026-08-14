@@ -161,6 +161,8 @@ function AppEntry() {
 export default function App() {
   return (
     <ErrorBoundary>
+      {/* Global watermark — shows on every page behind all content */}
+      <div className="watermark-bg" aria-hidden="true" />
       <BrowserRouter>
         <AppEntry />
       </BrowserRouter>

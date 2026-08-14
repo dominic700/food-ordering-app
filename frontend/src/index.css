@@ -1,15 +1,14 @@
 /* ── Reset ───────────────────────────────────────────────────── */
 /* ── Global Watermark — centered, faint, behind all content ───── */
-body::before {
-  content: '';
+.watermark-bg {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 75vw;
   height: 75vw;
-  max-width: 340px;
-  max-height: 340px;
+  max-width: 320px;
+  max-height: 320px;
   background-image: url('/logo-watermark.png');
   background-size: contain;
   background-repeat: no-repeat;
@@ -17,12 +16,6 @@ body::before {
   opacity: 0.10;
   pointer-events: none;
   z-index: 0;
-}
-
-/* Make sure all page content appears above the watermark */
-#root {
-  position: relative;
-  z-index: 1;
 }
 
 
