@@ -7,6 +7,13 @@ import { request } from './auth.js';
 //                                  per-item discounts applied)
 //   { payment_method: 'transfer', transfer_provider: 'telebirr' |
 //     'cbe_birr' | 'bank_transfer', transaction_number: '...' }
+export const verifyTelebirr = (cafeId, receiptInput, expectedAmount) =>
+  request('POST', '/orders/verify-telebirr', {
+    cafe_id: cafeId,
+    receipt_input: receiptInput,
+    expected_amount: expectedAmount,
+  });
+
 export const placeOrder = (cafeId, items, note, paymentInfo = {}) =>
   request('POST', '/orders', { cafe_id: cafeId, items, note, ...paymentInfo });
 

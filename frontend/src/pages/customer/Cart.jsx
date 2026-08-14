@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore.js';
-import { placeOrder } from '../../api/orders.js';
+import { placeOrder, verifyTelebirr } from '../../api/orders.js';
 import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -12,7 +12,7 @@ export default function Cart() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();
   const { t }       = useLanguage();
-  const { cafeAccount, cafe, loading: ctxLoading } = useCafeContext();
+  const { cafeAccount, loading: ctxLoading } = useCafeContext();
 
   const TRANSFER_PROVIDERS = [
     { value: 'telebirr',      label: '📱 Telebirr' },
@@ -29,6 +29,8 @@ export default function Cart() {
   const [paymentMethod,    setPaymentMethod]    = useState('cash');
   const [transferProvider, setTransferProvider] = useState('telebirr');
   const [transactionNumber, setTransactionNumber] = useState('');
+  const [verifying, setVerifying]         = useState(false);
+  const [verifyResult, setVerifyResult]   = useState(null); // { success, message }
   const [note,     setNote]     = useState('');
   const [placing,  setPlacing]  = useState(false);
   const [success,  setSuccess]  = useState(null);
@@ -73,6 +75,10 @@ export default function Cart() {
       }
     }
 
+    if (paymentMethod === 'transfer' && transferProvider === 'telebirr' && !verifyResult?.success) {
+      telegram.alert('Please verify your Telebirr receipt before placing the order.');
+      return;
+    }
     if (paymentMethod === 'transfer' && !transactionNumber.trim()) {
       return telegram.alert(t('enterTxNumber'));
     }
@@ -273,61 +279,64 @@ export default function Cart() {
           <div style={{ marginBottom: 10, padding: '12px 14px', background: 'var(--bg)', borderRadius: 10 }}>
             <div className="input-group" style={{ marginBottom: 10 }}>
               <label className="input-label">{t('provider')}</label>
-              <select className="input" style={{ paddingLeft: 14 }} value={transferProvider} onChange={e => setTransferProvider(e.target.value)}>
+              <select className="input" style={{ paddingLeft: 14 }} value={transferProvider} onChange={e => { setTransferProvider(e.target.value); setVerifyResult(null); setTransactionNumber(''); }}>
                 {TRANSFER_PROVIDERS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
               </select>
             </div>
-
-            {/* CBE payment info */}
-            {transferProvider === 'cbe_birr' && (cafe?.cbe_account_name || cafe?.cbe_account_number) && (
-              <div style={{ background: '#e8f4fd', border: '1.5px solid #3b82f6', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8', marginBottom: 6 }}>🏦 Send to CBE Birr Account</div>
-                {cafe.cbe_account_name && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ color: '#374151' }}>Account Name</span>
-                    <span style={{ fontWeight: 700, color: '#1e3a5f' }}>{cafe.cbe_account_name}</span>
-                  </div>
-                )}
-                {cafe.cbe_account_number && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                    <span style={{ color: '#374151' }}>Account Number</span>
-                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#1e3a5f', letterSpacing: 1 }}>{cafe.cbe_account_number}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Telebirr payment info */}
-            {transferProvider === 'telebirr' && (cafe?.telebirr_name || cafe?.telebirr_phone) && (
-              <div style={{ background: '#fdf3e8', border: '1.5px solid #f97316', borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 6 }}>📱 Send to Telebirr</div>
-                {cafe.telebirr_name && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ color: '#374151' }}>Full Name</span>
-                    <span style={{ fontWeight: 700, color: '#7c2d12' }}>{cafe.telebirr_name}</span>
-                  </div>
-                )}
-                {cafe.telebirr_phone && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                    <span style={{ color: '#374151' }}>Phone Number</span>
-                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#7c2d12' }}>{cafe.telebirr_phone}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="input-group" style={{ marginBottom: 0 }}>
-              <label className="input-label">{t('transactionNo')}</label>
+              <label className="input-label">
+                {transferProvider === 'telebirr' ? 'Telebirr Receipt Link / Code' : t('transactionNo')}
+              </label>
               <input
                 className="input"
                 style={{ paddingLeft: 14 }}
-                placeholder="e.g. 1234567890"
+                placeholder={transferProvider === 'telebirr' ? 'Paste receipt link, code, or SMS...' : 'e.g. 1234567890'}
                 value={transactionNumber}
-                onChange={e => setTransactionNumber(e.target.value)}
+                onChange={e => { setTransactionNumber(e.target.value); setVerifyResult(null); }}
               />
             </div>
+
+            {/* Telebirr auto-verify button */}
+            {transferProvider === 'telebirr' && transactionNumber.trim().length >= 10 && (
+              <div style={{ marginTop: 10 }}>
+                {!verifyResult ? (
+                  <button
+                    onClick={async () => {
+                      setVerifying(true);
+                      try {
+                        const result = await verifyTelebirr(cafeId, transactionNumber.trim(), total);
+                        setVerifyResult(result);
+                      } catch (err) {
+                        setVerifyResult({ success: false, message: '❌ Verification failed. Try again.' });
+                      } finally {
+                        setVerifying(false);
+                      }
+                    }}
+                    disabled={verifying}
+                    style={{
+                      width: '100%', padding: '11px', borderRadius: 10,
+                      border: '1.5px solid #f97316', background: verifying ? 'var(--bg)' : '#fff8f3',
+                      color: '#c2410c', fontWeight: 700, fontSize: 14,
+                      cursor: verifying ? 'default' : 'pointer',
+                    }}
+                  >
+                    {verifying ? '⏳ Verifying receipt...' : '🔍 Verify Telebirr Receipt'}
+                  </button>
+                ) : (
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13,
+                    background: verifyResult.success ? '#f0fdf4' : '#fff0f0',
+                    border: `1.5px solid ${verifyResult.success ? '#22c55e' : '#e63946'}`,
+                    color: verifyResult.success ? '#15803d' : '#b91c1c',
+                    display: 'flex', gap: 8, alignItems: 'flex-start',
+                  }}>
+                    <span>{verifyResult.message}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

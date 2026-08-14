@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/connection.js';
+import { verifyTelebirrPayment, extractReceiptCode } from '../utils/telebirrVerifier.js';
 import { telegramAuth, cafeOwnerAuth } from '../middleware/auth.js';
 import { sendTelegramMessage, newOrderMessage, orderApprovedMessage, orderCancelledMessage, transferRefundReminderMessage } from '../utils/telegramBot.js';
 import { createNotification } from '../utils/notifications.js';
@@ -20,6 +21,39 @@ const round2 = (n) => Math.round(n * 100) / 100;
 //   'cash'     -> Only requires a global_account. No registration
 //                 needed. Pays full list price (no discount). The
 //                 cafe owner gets a "collect cash" warning.
+// ── POST /api/orders/verify-telebirr ─────────────────────────
+// Verifies a Telebirr receipt against a cafe's telebirr account.
+// Called from Cart before placing the order.
+router.post('/verify-telebirr', telegramAuth, async (req, res) => {
+  try {
+    const { cafe_id, receipt_input, expected_amount } = req.body;
+    if (!cafe_id || !receipt_input || !expected_amount) {
+      return res.status(400).json({ error: 'cafe_id, receipt_input and expected_amount are required' });
+    }
+
+    // Get cafe's Telebirr account info
+    const cafeResult = await pool.query(
+      'SELECT telebirr_name, telebirr_phone FROM cafes WHERE id = $1',
+      [cafe_id]
+    );
+    if (cafeResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cafe not found' });
+    }
+
+    const result = await verifyTelebirrPayment(
+      receipt_input,
+      parseFloat(expected_amount),
+      cafeResult.rows[0]
+    );
+
+    res.json(result);
+  } catch (err) {
+    console.error('verify-telebirr error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 router.post('/', telegramAuth, async (req, res) => {
   const client = await pool.connect();
   try {
