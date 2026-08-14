@@ -5,13 +5,13 @@ export default function Spinner({ fullPage, label }) {
         position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
         background: '#ffffff',
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 24,
+        alignItems: 'center', justifyContent: 'center', gap: 28,
         zIndex: 9999,
       }}>
         <img
           src="/logo-watermark.png"
           alt="Poly Fuka"
-          style={{ width: 220, height: 220, objectFit: 'contain' }}
+          style={{ width: '75vw', maxWidth: 340, objectFit: 'contain' }}
         />
         <div className="spinner" />
         {label && (

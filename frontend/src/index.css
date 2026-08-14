@@ -6,12 +6,14 @@ body::before {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 260px;
-  height: 260px;
+  width: 75vw;
+  height: 75vw;
+  max-width: 340px;
+  max-height: 340px;
   background-image: url('/logo-watermark.png');
   background-size: contain;
   background-repeat: no-repeat;
-  background-position: center;
+  background-position: center center;
   opacity: 0.10;
   pointer-events: none;
   z-index: 0;
