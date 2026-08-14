@@ -1,4 +1,30 @@
 /* ── Reset ───────────────────────────────────────────────────── */
+/* ── Global Watermark ────────────────────────────────────────── */
+/* Applies to every page — fixed, centered, faint logo behind content */
+body::before {
+  content: '';
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  height: 280px;
+  background-image: url('/logo-watermark.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.045;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Make sure all page content appears above the watermark */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── Variables ───────────────────────────────────────────────── */
@@ -865,4 +891,10 @@ html, body, #root {
 }
 .nav-cart-btn svg {
   display: block;
+}
+
+/* ── Logo pulse animation (loading screen) ───────────────────── */
+@keyframes pulse-logo {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.92); }
 }
