@@ -1,19 +1,17 @@
 /* ── Reset ───────────────────────────────────────────────────── */
-/* ── Global Watermark ────────────────────────────────────────── */
-/* Applies to every page — fixed, centered, faint logo behind content */
+/* ── Global Watermark — full screen, static, behind everything ── */
 body::before {
   content: '';
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 280px;
-  height: 280px;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   background-image: url('/logo-watermark.png');
-  background-size: contain;
+  background-size: cover;
   background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.045;
+  background-position: center center;
+  opacity: 0.06;
   pointer-events: none;
   z-index: 0;
 }
@@ -891,10 +889,4 @@ html, body, #root {
 }
 .nav-cart-btn svg {
   display: block;
-}
-
-/* ── Logo pulse animation (loading screen) ───────────────────── */
-@keyframes pulse-logo {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.6; transform: scale(0.92); }
 }
