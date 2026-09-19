@@ -57,7 +57,7 @@ router.post('/', telegramAuth, async (req, res) => {
     const result = await pool.query(`
       INSERT INTO deposits (per_cafe_account_id, cafe_id, amount, payment_method, transaction_number)
       VALUES ($1, $2, $3, $4, $5) RETURNING *
-    `, [pcaResult.rows[0].id, cafe_id, amount, payment_method, transaction_number]);
+    `, [pcaResult.rows[0].id, cafe_id, amount, payment_method, txNumber]);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {

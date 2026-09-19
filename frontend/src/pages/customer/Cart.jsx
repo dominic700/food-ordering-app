@@ -100,7 +100,7 @@ export default function Cart() {
       if (paymentMethod === 'transfer') {
         paymentInfo = {
           payment_method:     'transfer',
-          transfer_provider:  transferProvider,
+          transfer_provider:  'telebirr',
           transaction_number: transactionNumber.trim(),
         };
       } else if (paymentMethod === 'cash') {
