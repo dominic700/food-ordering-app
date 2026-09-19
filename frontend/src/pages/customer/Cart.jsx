@@ -12,7 +12,7 @@ export default function Cart() {
   const { cafeId }  = useParams();
   const navigate    = useNavigate();
   const { t }       = useLanguage();
-  const { cafeAccount, loading: ctxLoading } = useCafeContext();
+  const { cafeAccount, cafe, loading: ctxLoading } = useCafeContext();
 
   const cart            = useStore(s => s.cart);
   const addToCart       = useStore(s => s.addToCart);
