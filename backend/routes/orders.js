@@ -22,30 +22,17 @@ const round2 = (n) => Math.round(n * 100) / 100;
 //                 needed. Pays full list price (no discount). The
 //                 cafe owner gets a "collect cash" warning.
 // ── POST /api/orders/verify-telebirr ─────────────────────────
-// Verifies a Telebirr receipt against a cafe's telebirr account.
-// Called from Cart before placing the order.
 router.post('/verify-telebirr', telegramAuth, async (req, res) => {
   try {
     const { cafe_id, receipt_input, expected_amount } = req.body;
     if (!cafe_id || !receipt_input || !expected_amount) {
       return res.status(400).json({ error: 'cafe_id, receipt_input and expected_amount are required' });
     }
-
-    // Get cafe's Telebirr account info
     const cafeResult = await pool.query(
-      'SELECT telebirr_name, telebirr_phone FROM cafes WHERE id = $1',
-      [cafe_id]
+      'SELECT telebirr_name, telebirr_phone FROM cafes WHERE id = $1', [cafe_id]
     );
-    if (cafeResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Cafe not found' });
-    }
-
-    const result = await verifyTelebirrPayment(
-      receipt_input,
-      parseFloat(expected_amount),
-      cafeResult.rows[0]
-    );
-
+    if (cafeResult.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
+    const result = await verifyTelebirrPayment(receipt_input, parseFloat(expected_amount), cafeResult.rows[0]);
     res.json(result);
   } catch (err) {
     console.error('verify-telebirr error:', err.message);

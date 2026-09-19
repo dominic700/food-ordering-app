@@ -1,10 +1,32 @@
 import express from 'express';
 import pool from '../db/connection.js';
+import { verifyTelebirrPayment } from '../utils/telebirrVerifier.js';
 import { telegramAuth } from '../middleware/auth.js';
 import { createNotification } from '../utils/notifications.js';
 import { sendTelegramMessage, depositVerifiedMessage } from '../utils/telegramBot.js';
 
 const router = express.Router();
+
+// ── POST /api/deposits/verify-telebirr ───────────────────────
+// Verifies a Telebirr receipt for deposit before submitting.
+router.post('/verify-telebirr', telegramAuth, async (req, res) => {
+  try {
+    const { cafe_id, receipt_input, expected_amount } = req.body;
+    if (!cafe_id || !receipt_input || !expected_amount) {
+      return res.status(400).json({ error: 'cafe_id, receipt_input and expected_amount are required' });
+    }
+    const cafeResult = await pool.query(
+      'SELECT telebirr_name, telebirr_phone FROM cafes WHERE id = $1', [cafe_id]
+    );
+    if (cafeResult.rows.length === 0) return res.status(404).json({ error: 'Cafe not found' });
+    const result = await verifyTelebirrPayment(receipt_input, parseFloat(expected_amount), cafeResult.rows[0]);
+    res.json(result);
+  } catch (err) {
+    console.error('deposit verify-telebirr error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 // ── POST /api/deposits ────────────────────────────────────────
 // Customer submits a deposit (cash or transfer reference number)
@@ -12,11 +34,15 @@ const router = express.Router();
 router.post('/', telegramAuth, async (req, res) => {
   try {
     const { telegram_id } = req.telegramUser;
-    const { cafe_id, amount, payment_method, transaction_number } = req.body;
+    const { cafe_id, amount, payment_method, transaction_number, screenshot_data } = req.body;
 
-    if (!cafe_id || !amount || !payment_method || !transaction_number) {
+    if (!cafe_id || !amount || !payment_method) {
       return res.status(400).json({ error: 'All fields are required' });
     }
+    if (!transaction_number && !screenshot_data) {
+      return res.status(400).json({ error: 'Please provide a receipt code or screenshot' });
+    }
+    const txNumber = transaction_number || (screenshot_data ? 'screenshot-pending' : '');
 
     const pcaResult = await pool.query(`
       SELECT pca.id FROM per_cafe_accounts pca

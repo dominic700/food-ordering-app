@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccountHistory } from '../../api/customer.js';
-import { submitDeposit } from '../../api/deposits.js';
+import { submitDeposit, verifyDepositTelebirr } from '../../api/deposits.js';
 import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -15,21 +15,18 @@ export default function Deposit() {
   const { cafeId } = useParams();
   const navigate = useNavigate();
   const { t }     = useLanguage();
-  const { cafeAccount, loading: ctxLoading, refreshAccount } = useCafeContext();
+  const { cafeAccount, cafe, loading: ctxLoading, refreshAccount } = useCafeContext();
 
-  const PAYMENT_METHODS = [
-    { value: 'telebirr',      label: '📱 Telebirr' },
-    { value: 'cbe_birr',      label: '🏦 CBE Birr' },
-    { value: 'bank_transfer', label: `🏛️ ${t('transfer')}` },
-    { value: 'cash',          label: `💵 ${t('cash')}` },
-  ];
-
-  const [deposits, setDeposits] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [method, setMethod] = useState('telebirr');
-  const [amount, setAmount] = useState('');
-  const [txNumber, setTxNumber] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [method, setMethod]             = useState('telebirr');
+  const [deposits, setDeposits]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [amount, setAmount]             = useState('');
+  const [txNumber, setTxNumber]         = useState('');
+  const [screenshot, setScreenshot]     = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState(null);
+  const [submitting, setSubmitting]     = useState(false);
+  const [verifying, setVerifying]       = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
 
   useEffect(() => {
     telegram.showBackButton(() => navigate(`/cafe/${cafeId}/profile`));
@@ -47,13 +44,37 @@ export default function Deposit() {
 
   async function handleSubmit() {
     if (!amount || parseFloat(amount) <= 0) return telegram.alert(t('enterValidAmount'));
-    if (!txNumber.trim()) return telegram.alert(t('enterTxNumber'));
+    if (method === 'telebirr' && !txNumber.trim() && !screenshot) {
+      return telegram.alert('Please verify your Telebirr receipt or upload a screenshot.');
+    }
+    if (method === 'telebirr' && !verifyResult?.success && !screenshot) {
+      telegram.alert('Please verify your Telebirr receipt or upload a screenshot.');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await submitDeposit(cafeId, parseFloat(amount), method, txNumber.trim());
+      // If screenshot uploaded, convert to base64 and include in note
+      let screenshotData = null;
+      if (screenshot) {
+        screenshotData = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsDataURL(screenshot);
+        });
+      }
+      await submitDeposit(
+        cafeId,
+        parseFloat(amount),
+        method,
+        txNumber.trim() || 'screenshot',
+        screenshotData
+      );
       setAmount('');
       setTxNumber('');
+      setScreenshot(null);
+      setScreenshotPreview(null);
+      setVerifyResult(null);
       telegram.haptic('success');
       telegram.alert(t('depositSubmittedFull'));
       loadDeposits();
@@ -63,6 +84,15 @@ export default function Deposit() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleScreenshot(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setScreenshot(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+    setVerifyResult(null);
+    setTxNumber('');
   }
 
   if (ctxLoading || loading) return <Spinner fullPage label={t('loading')} />;
@@ -90,12 +120,72 @@ export default function Deposit() {
           </div>
         </div>
 
-        <div className="input-group">
-          <label className="input-label">{t('depositMethod')}</label>
-          <select className="input" style={{ paddingLeft: 14 }} value={method} onChange={e => setMethod(e.target.value)}>
-            {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+        {/* Payment method selector */}
+        <div className="input-group" style={{ marginBottom: 16 }}>
+          <label className="input-label">Payment Method</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => { setMethod('telebirr'); setVerifyResult(null); setTxNumber(''); setScreenshot(null); setScreenshotPreview(null); }}
+              style={{
+                flex: 1, padding: '12px 0', borderRadius: 10, fontWeight: 700, fontSize: 14,
+                border: `2px solid ${method === 'telebirr' ? '#f97316' : 'var(--border)'}`,
+                background: method === 'telebirr' ? '#fff8f3' : 'var(--bg)',
+                color: method === 'telebirr' ? '#c2410c' : 'var(--text2)',
+                cursor: 'pointer',
+              }}
+            >
+              📱 Telebirr
+            </button>
+            <button
+              onClick={() => { setMethod('cash'); setVerifyResult(null); setTxNumber(''); setScreenshot(null); setScreenshotPreview(null); }}
+              style={{
+                flex: 1, padding: '12px 0', borderRadius: 10, fontWeight: 700, fontSize: 14,
+                border: `2px solid ${method === 'cash' ? '#22c55e' : 'var(--border)'}`,
+                background: method === 'cash' ? '#f0fdf4' : 'var(--bg)',
+                color: method === 'cash' ? '#15803d' : 'var(--text2)',
+                cursor: 'pointer',
+              }}
+            >
+              💵 Cash
+            </button>
+          </div>
         </div>
+
+        {/* Cash info */}
+        {method === 'cash' && (
+          <div style={{
+            background: '#f0fdf4', border: '1.5px solid #22c55e',
+            borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+            fontSize: 13, color: '#15803d', fontWeight: 600,
+          }}>
+            💵 Pay cash directly to the cafe. The cafe owner will verify and add your balance.
+          </div>
+        )}
+
+        {/* Telebirr account info */}
+        {method === 'telebirr' &&
+        {method === 'telebirr' && cafe?.telebirr_phone && (
+          <div style={{
+            background: '#fff8f3', border: '1.5px solid #f97316',
+            borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 8 }}>
+              📱 Send to Telebirr
+            </div>
+            {cafe.telebirr_name && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                <span style={{ color: '#374151' }}>Full Name</span>
+                <span style={{ fontWeight: 700, color: '#7c2d12' }}>{cafe.telebirr_name}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: '#374151' }}>Phone Number</span>
+              <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#7c2d12', fontSize: 15, letterSpacing: 1 }}>
+                {cafe.telebirr_phone}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="input-group">
           <label className="input-label">{t('depositAmount')}</label>
@@ -107,17 +197,110 @@ export default function Deposit() {
           />
         </div>
 
+        {method === 'telebirr' && (<>
+        {/* Option 1 — Receipt link or code */}
+        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
+          Option 1 — Paste Receipt Link or Code
+        </div>
         <div className="input-group">
-          <label className="input-label">{t('depositTxNo')}</label>
           <input
             className="input" style={{ paddingLeft: 14 }}
-            placeholder="e.g. 1234567890"
-            value={txNumber} onChange={e => setTxNumber(e.target.value)}
+            placeholder="Paste receipt URL, code or Amharic SMS..."
+            value={txNumber}
+            onChange={e => { setTxNumber(e.target.value); setVerifyResult(null); setScreenshot(null); setScreenshotPreview(null); }}
           />
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-            {t('txNumberHint')}
-          </div>
         </div>
+
+        {/* Auto verify button */}
+        {txNumber.trim().length >= 8 && amount && parseFloat(amount) > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            {!verifyResult ? (
+              <button
+                onClick={async () => {
+                  setVerifying(true);
+                  try {
+                    const result = await verifyDepositTelebirr(cafeId, txNumber.trim(), parseFloat(amount));
+                    setVerifyResult(result);
+                  } catch (err) {
+                    setVerifyResult({ success: false, message: '❌ Verification failed. Try again or upload a screenshot.' });
+                  } finally {
+                    setVerifying(false);
+                  }
+                }}
+                disabled={verifying}
+                style={{
+                  width: '100%', padding: 12, borderRadius: 10,
+                  border: '1.5px solid #f97316',
+                  background: verifying ? 'var(--bg)' : '#fff8f3',
+                  color: '#c2410c', fontWeight: 700, fontSize: 14,
+                  cursor: verifying ? 'default' : 'pointer',
+                }}
+              >
+                {verifying ? '⏳ Verifying...' : '🔍 Auto Verify Receipt'}
+              </button>
+            ) : (
+              <div style={{
+                padding: '12px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                background: verifyResult.success ? '#f0fdf4' : '#fff0f0',
+                border: `1.5px solid ${verifyResult.success ? '#22c55e' : '#e63946'}`,
+                color: verifyResult.success ? '#15803d' : '#b91c1c',
+              }}>
+                {verifyResult.message}
+                {!verifyResult.success && (
+                  <div onClick={() => setVerifyResult(null)}
+                    style={{ marginTop: 8, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
+                    Try again
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Option 2 — Screenshot */}
+        {!verifyResult?.success && (
+          <>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text2)', margin: '12px 0 8px' }}>
+              Option 2 — Upload Screenshot
+            </div>
+            <label style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              border: '2px dashed #f97316', borderRadius: 12, padding: '16px',
+              cursor: 'pointer', background: '#fff8f3', marginBottom: 12,
+            }}>
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleScreenshot} />
+              {screenshotPreview ? (
+                <img src={screenshotPreview} alt="screenshot"
+                  style={{ width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 8 }} />
+              ) : (
+                <>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
+                  <div style={{ fontSize: 13, color: '#c2410c', fontWeight: 600 }}>Tap to upload screenshot</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>JPG, PNG accepted</div>
+                </>
+              )}
+            </label>
+            {screenshotPreview && (
+              <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>
+                ✅ Screenshot selected — cafe owner will verify manually
+              </div>
+            )}
+          </>
+        )}
+        </>)}
+
+        {/* Cash tx number */}
+        {method === 'cash' && (
+          <div className="input-group">
+            <label className="input-label">Transaction / Reference Number (optional)</label>
+            <input
+              className="input" style={{ paddingLeft: 14 }}
+              placeholder="e.g. receipt number"
+              value={txNumber}
+              onChange={e => setTxNumber(e.target.value)}
+            />
+          </div>
+        )}
 
         <button className="btn btn-red" onClick={handleSubmit} disabled={submitting}>
           {submitting ? t('submitting') : t('depositSubmit')}

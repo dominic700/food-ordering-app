@@ -14,12 +14,6 @@ export default function Cart() {
   const { t }       = useLanguage();
   const { cafeAccount, loading: ctxLoading } = useCafeContext();
 
-  const TRANSFER_PROVIDERS = [
-    { value: 'telebirr',      label: '📱 Telebirr' },
-    { value: 'cbe_birr',      label: '🏦 CBE Birr' },
-    { value: 'bank_transfer', label: `🏛️ ${t('transfer')}` },
-  ];
-
   const cart            = useStore(s => s.cart);
   const addToCart       = useStore(s => s.addToCart);
   const removeFromCart  = useStore(s => s.removeFromCart);
@@ -27,10 +21,13 @@ export default function Cart() {
   const clearCart       = useStore(s => s.clearCart);
 
   const [paymentMethod,    setPaymentMethod]    = useState('cash');
-  const [transferProvider, setTransferProvider] = useState('telebirr');
+
   const [transactionNumber, setTransactionNumber] = useState('');
-  const [verifying, setVerifying]         = useState(false);
-  const [verifyResult, setVerifyResult]   = useState(null); // { success, message }
+  const [verifying, setVerifying]       = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [screenshot, setScreenshot]     = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState(null);
+  const [screenshotData, setScreenshotData] = useState(null);
   const [note,     setNote]     = useState('');
   const [placing,  setPlacing]  = useState(false);
   const [success,  setSuccess]  = useState(null);
@@ -62,6 +59,18 @@ export default function Cart() {
   // Wallet uses discounted price, cash/transfer use list price
   const total = paymentMethod === 'wallet' ? walletTotal : listTotal;
 
+  function handleScreenshot(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setScreenshot(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+    setVerifyResult(null);
+    setTransactionNumber('');
+    const reader = new FileReader();
+    reader.onload = (ev) => setScreenshotData(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
   async function handlePlaceOrder() {
     if (cart.length === 0) return;
 
@@ -75,7 +84,7 @@ export default function Cart() {
       }
     }
 
-    if (paymentMethod === 'transfer' && transferProvider === 'telebirr' && !verifyResult?.success) {
+    if (paymentMethod === 'transfer' && !verifyResult?.success && !screenshotData) {
       telegram.alert('Please verify your Telebirr receipt before placing the order.');
       return;
     }
@@ -274,33 +283,43 @@ export default function Cart() {
           </div>
         </div>
 
-        {/* Transfer sub-form */}
+        {/* Telebirr sub-form */}
         {paymentMethod === 'transfer' && (
           <div style={{ marginBottom: 10, padding: '12px 14px', background: 'var(--bg)', borderRadius: 10 }}>
-            <div className="input-group" style={{ marginBottom: 10 }}>
-              <label className="input-label">{t('provider')}</label>
-              <select className="input" style={{ paddingLeft: 14 }} value={transferProvider} onChange={e => { setTransferProvider(e.target.value); setVerifyResult(null); setTransactionNumber(''); }}>
-                {TRANSFER_PROVIDERS.map(p => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="input-group" style={{ marginBottom: 0 }}>
-              <label className="input-label">
-                {transferProvider === 'telebirr' ? 'Telebirr Receipt Link / Code' : t('transactionNo')}
-              </label>
+
+            {/* Cafe Telebirr phone */}
+            {cafe?.telebirr_phone && (
+              <div style={{
+                background: '#fff8f3', border: '1.5px solid #f97316',
+                borderRadius: 10, padding: '12px 14px', marginBottom: 12,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#c2410c', marginBottom: 6 }}>📱 Send to Telebirr</div>
+                {cafe.telebirr_name && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <span style={{ color: '#374151' }}>Full Name</span>
+                    <span style={{ fontWeight: 700, color: '#7c2d12' }}>{cafe.telebirr_name}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: '#374151' }}>Phone</span>
+                  <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#7c2d12', fontSize: 15 }}>{cafe.telebirr_phone}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Option 1 — Receipt code */}
+            <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>Option 1 — Paste Receipt Link or Code</div>
+            <div className="input-group" style={{ marginBottom: 8 }}>
               <input
-                className="input"
-                style={{ paddingLeft: 14 }}
-                placeholder={transferProvider === 'telebirr' ? 'Paste receipt link, code, or SMS...' : 'e.g. 1234567890'}
+                className="input" style={{ paddingLeft: 14 }}
+                placeholder="Paste receipt URL, code or Amharic SMS..."
                 value={transactionNumber}
-                onChange={e => { setTransactionNumber(e.target.value); setVerifyResult(null); }}
+                onChange={e => { setTransactionNumber(e.target.value); setVerifyResult(null); setScreenshot(null); setScreenshotPreview(null); setScreenshotData(null); }}
               />
             </div>
 
-            {/* Telebirr auto-verify button */}
-            {transferProvider === 'telebirr' && transactionNumber.trim().length >= 10 && (
-              <div style={{ marginTop: 10 }}>
+            {transactionNumber.trim().length >= 8 && (
+              <div style={{ marginBottom: 10 }}>
                 {!verifyResult ? (
                   <button
                     onClick={async () => {
@@ -309,33 +328,66 @@ export default function Cart() {
                         const result = await verifyTelebirr(cafeId, transactionNumber.trim(), total);
                         setVerifyResult(result);
                       } catch (err) {
-                        setVerifyResult({ success: false, message: '❌ Verification failed. Try again.' });
+                        setVerifyResult({ success: false, message: '❌ Verification failed. Try again or upload a screenshot.' });
                       } finally {
                         setVerifying(false);
                       }
                     }}
                     disabled={verifying}
                     style={{
-                      width: '100%', padding: '11px', borderRadius: 10,
+                      width: '100%', padding: 11, borderRadius: 10,
                       border: '1.5px solid #f97316', background: verifying ? 'var(--bg)' : '#fff8f3',
                       color: '#c2410c', fontWeight: 700, fontSize: 14,
                       cursor: verifying ? 'default' : 'pointer',
                     }}
                   >
-                    {verifying ? '⏳ Verifying receipt...' : '🔍 Verify Telebirr Receipt'}
+                    {verifying ? '⏳ Verifying...' : '🔍 Auto Verify Receipt'}
                   </button>
                 ) : (
                   <div style={{
-                    padding: '12px 14px', borderRadius: 10, fontWeight: 600, fontSize: 13,
+                    padding: '12px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
                     background: verifyResult.success ? '#f0fdf4' : '#fff0f0',
                     border: `1.5px solid ${verifyResult.success ? '#22c55e' : '#e63946'}`,
                     color: verifyResult.success ? '#15803d' : '#b91c1c',
-                    display: 'flex', gap: 8, alignItems: 'flex-start',
                   }}>
-                    <span>{verifyResult.message}</span>
+                    {verifyResult.message}
+                    {!verifyResult.success && (
+                      <div onClick={() => setVerifyResult(null)}
+                        style={{ marginTop: 6, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>
+                        Try again
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Option 2 — Screenshot */}
+            {!verifyResult?.success && (
+              <>
+                <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text2)', margin: '10px 0 6px' }}>Option 2 — Upload Screenshot</div>
+                <label style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  border: '2px dashed #f97316', borderRadius: 10, padding: 14,
+                  cursor: 'pointer', background: '#fff8f3',
+                }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleScreenshot} />
+                  {screenshotPreview ? (
+                    <img src={screenshotPreview} alt="screenshot"
+                      style={{ width: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 8 }} />
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 24, marginBottom: 4 }}>📸</div>
+                      <div style={{ fontSize: 13, color: '#c2410c', fontWeight: 600 }}>Tap to upload screenshot</div>
+                    </>
+                  )}
+                </label>
+                {screenshotPreview && (
+                  <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600, marginTop: 6, textAlign: 'center' }}>
+                    ✅ Screenshot selected — cafe owner will verify manually
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
