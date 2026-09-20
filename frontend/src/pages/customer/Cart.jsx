@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import useStore from '../../store/useStore.js';
-import { placeOrder, verifyTelebirr } from '../../api/orders.js';
+import { verifyTelebirrReceipt } from '../../utils/telebirrVerifier.js';
+import { placeOrder } from '../../api/orders.js';
 import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import Spinner from '../../components/Spinner.jsx';
@@ -325,10 +326,10 @@ export default function Cart() {
                     onClick={async () => {
                       setVerifying(true);
                       try {
-                        const result = await verifyTelebirr(cafeId, transactionNumber.trim(), total);
+                        const result = await verifyTelebirrReceipt(transactionNumber.trim(), total, cafe);
                         setVerifyResult(result);
                       } catch (err) {
-                        setVerifyResult({ success: false, message: '❌ Verification failed. Try again or upload a screenshot.' });
+                        setVerifyResult({ success: false, message: '❌ Verification failed. Upload a screenshot instead.' });
                       } finally {
                         setVerifying(false);
                       }

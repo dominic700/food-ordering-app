@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAccountHistory } from '../../api/customer.js';
-import { submitDeposit, verifyDepositTelebirr } from '../../api/deposits.js';
+import { submitDeposit } from '../../api/deposits.js';
+import { verifyTelebirrReceipt } from '../../utils/telebirrVerifier.js';
 import useCafeContext from '../../hooks/useCafeContext.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -231,7 +232,7 @@ export default function Deposit() {
                     onClick={async () => {
                       setVerifying(true);
                       try {
-                        const result = await verifyDepositTelebirr(cafeId, txNumber.trim(), parseFloat(amount));
+                        const result = await verifyTelebirrReceipt(txNumber.trim(), parseFloat(amount), cafe);
                         setVerifyResult(result);
                       } catch (err) {
                         setVerifyResult({ success: false, message: '❌ Verification failed. Try again or upload a screenshot.' });
