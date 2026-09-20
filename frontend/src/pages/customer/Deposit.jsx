@@ -206,6 +206,20 @@ export default function Deposit() {
         {/* Telebirr proof section */}
         {method === 'telebirr' && (
           <>
+            {/* Caution message */}
+            <div style={{
+              background: '#fffbeb', border: '1.5px solid #f59e0b',
+              borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+                <strong>Important:</strong> You must send the <strong>exact amount</strong> of{' '}
+                <strong style={{ color: '#dc2626' }}>{parseFloat(amount || 0).toFixed(2)} ETB</strong> to the Telebirr number above.
+                Sending a different amount will cause verification to fail and your deposit will not be submitted.
+              </div>
+            </div>
+
             {/* Option 1 — receipt code */}
             <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
               Option 1 — Paste Receipt Link or Code

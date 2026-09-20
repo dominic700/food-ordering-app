@@ -308,6 +308,20 @@ export default function Cart() {
               </div>
             )}
 
+            {/* Caution message */}
+            <div style={{
+              background: '#fffbeb', border: '1.5px solid #f59e0b',
+              borderRadius: 10, padding: '10px 14px', marginBottom: 12,
+              display: 'flex', gap: 8, alignItems: 'flex-start',
+            }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+                <strong>Important:</strong> You must send the <strong>exact amount</strong> of{' '}
+                <strong style={{ color: '#dc2626' }}>{total.toFixed(2)} ETB</strong> to the Telebirr number above.
+                Sending a different amount will cause verification to fail and your order will not be placed.
+              </div>
+            </div>
+
             {/* Option 1 — Receipt code */}
             <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>Option 1 — Paste Receipt Link or Code</div>
             <div className="input-group" style={{ marginBottom: 8 }}>
